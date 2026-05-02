@@ -1,0 +1,67 @@
+:root {
+  --primary-blur: saturate(180%) blur(20px);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --accent-color: #6366f1;
+}
+
+.container {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 85vh;
+  max-width: 800px;
+  margin: 40px auto;
+  background: var(--glass-bg);
+  backdrop-filter: var(--primary-blur);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 32px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.messageList {
+  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent);
+  padding: 30px;
+  gap: 20px;
+}
+
+.bubble {
+  padding: 14px 20px;
+  border-radius: 20px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: transform 0.2s ease;
+}
+
+.aiBubble {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  border-bottom-left-radius: 4px;
+}
+
+.userBubble {
+  background: var(--accent-color);
+  color: white;
+  box-shadow: 0 10px 20px rgba(99, 102, 241, 0.2);
+  border-bottom-right-radius: 4px;
+}
+
+.inputArea {
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 12px 20px;
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}

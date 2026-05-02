@@ -1,154 +1,100 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { upsertUser } from "@/lib/user";
 
 export default function Home() {
-  const [role, setRole] = useState("总裁");
-  const [model, setModel] = useState("gpt");
-  const [message, setMessage] = useState('');
-  const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
-  const [loading, setLoading] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const router = useRouter();
+  const [search, setSearch] = useState("");
+
+  const cards = [
+    { id: 1, title: "冷淡总裁", desc: "强势 / 简短 / 压迫感" },
+    { id: 2, title: "温柔学长", desc: "体贴 / 安抚 / 轻声" },
+    { id: 3, title: "毒舌朋友", desc: "嘴毒但心软" },
+  ];
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-    }
-  }, [chatHistory]);
+  const init = async () => {
+    const { data } = await supabase.auth.getUser();
 
-  const startNewChat = () => {
-    if (confirm('Proceed with data obliteration? Historical neural traces will be lost.')) {
-      setChatHistory([]);
-      setMessage('');
+    if (!data.user) {
+      router.push("/login");
+      return;
     }
+
+    await upsertUser(data.user);
   };
 
-  const simulateTyping = (text: string) => {
-    let currentText = "";
-    let index = 0;
-    setChatHistory(prev => [...prev, { role: 'ai', content: '' }]);
-    const interval = setInterval(() => {
-      currentText += text[index];
-      setChatHistory(prev => {
-        const updated = [...prev];
-        updated[updated.length - 1].content = currentText;
-        return updated;
-      });
-      index++;
-      if (index === text.length) clearInterval(interval);
-    }, 20);
-  };
+  init();
+}, []);
 
-  const sendMessage = async () => {
-    if (!message.trim() || loading) return;
-    const userMsg = message;
-    setMessage('');
-    setChatHistory(prev => [...prev, { role: 'user', content: userMsg }]);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, role, model }),
-      });
-      const data = await res.json();
-      simulateTyping(data.reply || data.error || 'Interface timeout.');
-    } catch (error) {
-      setChatHistory(prev => [...prev, { role: 'ai', content: 'Connection severed. Check neural link.' }]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
-    <div className="flex h-screen bg-[#020203] text-[#a1a1aa] font-sans selection:bg-[#786BD4]/30">
-      {/* 极简侧边栏 */}
-      <aside className="hidden lg:flex w-20 hover:w-64 transition-all duration-500 bg-black border-r border-white/5 flex-col group overflow-hidden z-30">
-        <div className="h-20 flex items-center px-6 border-b border-white/5">
-          <div className="w-8 h-8 rounded-full border border-[#786BD4] flex items-center justify-center text-[#786BD4] font-black text-xs shadow-[0_0_15px_rgba(120,107,212,0.4)]">Σ</div>
-          <span className="ml-6 text-white font-bold tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">ARCHITECT_S</span>
-        </div>
-        <div className="flex-1 p-4 space-y-8 mt-6">
-          <button onClick={startNewChat} className="w-12 h-12 rounded-xl border border-white/10 flex items-center justify-center hover:bg-white/5 transition-colors group-hover:w-full group-hover:justify-start group-hover:px-4">
-          <span className="text-white">+</span>
-          <span className="ml-4 text-[10px] tracking-widest opacity-0 group-hover:opacity-100 whitespace-nowrap">INIT_PURGE</span>
-          </button>
-        </div>
-      </aside>
+    <div className="min-h-screen bg-white text-black flex">
 
-      <main className="flex-1 flex flex-col bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat">
-        {/* 悬浮顶栏 */}
-        <header className="h-16 flex items-center justify-between px-10 border-b border-white/5 backdrop-blur-xl bg-black/40 z-20">
-          <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#786BD4] animate-ping"></div>
-          <span className="text-[10px] tracking-[0.3em] font-black text-white/50 uppercase">Neural Link Established</span>
-          </div>
-          <div className="h-4 w-px bg-white/10"></div>
-          <div className="flex gap-4">
-          <span className="text-[10px] font-bold px-2 py-1 bg-white/5 rounded border border-white/5 text-[#786BD4]">{model.toUpperCase()}</span>
-          <span className="text-[10px] font-bold px-2 py-1 bg-white/5 rounded border border-white/5 text-white/40">{role}</span>
-          </div>
-          </div>
-        </header>
+      {/* 左侧导航 */}
+      <div className="hidden md:flex w-48 border-r flex-col p-4 gap-3">
+        <button onClick={() => router.push("/")}>首页</button>
+        <button onClick={() => router.push("/chat")}>聊天</button>
+        <button onClick={() => router.push("/create")}>创建角色</button>
+        <button onClick={() => router.push("/profile")}>个人</button>
+        <button onClick={() => router.push("/recharge")}>充值</button>
+      </div>
 
-        {/* 沉浸式消息流 */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-8 py-12 md:px-24 space-y-12 custom-scrollbar">
-          {chatHistory.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center space-y-4">
-          <div className="text-8xl font-black text-white/5 tracking-tighter italic select-none">ARCHITECTURE</div>
-          <p className="text-[10px] tracking-[0.5em] text-white/20 uppercase">Waiting for input pulse...</p>
-          </div>
-          ) : (
-          chatHistory.map((chat, i) => (
-          <div key={i} className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-700`}>
-          <div className={`max-w-[85%] md:max-w-[70%] text-sm leading-relaxed ${
-          chat.role === 'user' 
-          ? 'text-white border-r-2 border-[#786BD4] pr-6 text-right' 
-          : 'text-white/70 border-l-2 border-white/10 pl-6'
-          }`}>
-          <div className="whitespace-pre-wrap">{chat.content}</div>
-          </div>
-          </div>
-          ))
-          )}
-        </div>
+      {/* 主内容 */}
+      <div className="flex-1 p-6">
 
-        {/* 极简操控台 */}
-        <footer className="p-8 md:p-16">
-          <div className="max-w-4xl mx-auto space-y-6">
-          <div className="flex gap-4 px-2">
-          <div className="relative group">
-          <select value={role} onChange={(e) => setRole(e.target.value)} className="appearance-none bg-transparent text-[10px] tracking-widest text-white/30 hover:text-[#786BD4] transition-colors uppercase border-none focus:ring-0 cursor-pointer">
-          <option value="总裁">Persona: CEO</option>
-          <option value="温柔">Persona: Gentle</option>
-          <option value="毒舌">Persona: Sharp</option>
-          </select>
-          </div>
-          <div className="relative group">
-          <select value={model} onChange={(e) => setModel(e.target.value)} className="appearance-none bg-transparent text-[10px] tracking-widest text-white/30 hover:text-[#786BD4] transition-colors uppercase border-none focus:ring-0 cursor-pointer">
-          <option value="gpt">Engine: GPT-4</option>
-          <option value="gemini">Engine: Gemini</option>
-          <option value="deepseek">Engine: deepseek</option>
-          </select>
-          </div>
-          </div>
-          
-          <div className="relative group flex items-end border-b border-white/10 pb-4 focus-within:border-[#786BD4] transition-all duration-700">
-          <textarea
-          rows={1}
-          className="flex-1 bg-transparent border-none px-2 text-white placeholder-white/10 focus:ring-0 resize-none text-base font-light"
-          placeholder="Type your command..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), sendMessage())}
+        {/* 搜索 */}
+        <div className="max-w-4xl mx-auto mb-6">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索角色 / 对话..."
+            className="w-full px-4 py-3 rounded-xl border bg-gray-50 outline-none"
           />
-          <button onClick={sendMessage} className="ml-4 p-2 text-white/20 hover:text-[#786BD4] transition-all">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 8l4 4m0 0l-4 4m4-4H3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </button>
+        </div>
+
+        {/* 卡片 */}
+        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4">
+
+          {cards.map((c) => (
+            <div
+              key={c.id}
+              onClick={() => router.push(`/chat/${c.id}`)}
+              className="cursor-pointer rounded-2xl overflow-hidden border hover:shadow-md transition bg-white"
+            >
+
+              <div className="aspect-[3/4] bg-gray-200 flex items-center justify-center text-gray-400">
+                Image
+              </div>
+
+              <div className="p-3">
+                <div className="font-semibold">{c.title}</div>
+                <div className="text-sm text-gray-500">{c.desc}</div>
+              </div>
+
+            </div>
+          ))}
+
+          <div className="rounded-2xl border border-dashed flex items-center justify-center text-gray-400 aspect-[3/4]">
+            + 更多角色
           </div>
-          </div>
-        </footer>
-      </main>
+
+        </div>
+
+      </div>
+
+      {/* 手机导航 */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-white flex justify-around p-3 text-sm">
+        <button onClick={() => router.push("/")}>首页</button>
+        <button onClick={() => router.push("/chat")}>聊天</button>
+        <button onClick={() => router.push("/create")}>创建</button>
+        <button onClick={() => router.push("/profile")}>个人</button>
+      </div>
+
     </div>
   );
 }
