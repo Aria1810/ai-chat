@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 export default function Home() {
+  const [role, setRole] = useState("总裁")
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -40,7 +41,9 @@ export default function Home() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg }),
+        body: JSON.stringify({ 
+          message: userMsg,
+        role }),
       });
       
       const data = await res.json();
@@ -154,6 +157,11 @@ export default function Home() {
 
         {/* 底部输入框 */}
         <footer className="p-6 md:p-10 bg-gradient-to-t from-[#0f172a] via-[#0f172a] to-transparent">
+          <select onChange={(e) => setRole(e.target.value)}>
+            <option value="总裁">总裁</option>
+            <option value="温柔">温柔</option>
+            <option value="毒舌">毒舌</option>
+          </select>
           <div className="max-w-4xl mx-auto relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-[1.5rem] blur opacity-25 group-focus-within:opacity-50 transition duration-1000"></div>
             <div className="relative flex items-end bg-[#1e293b] rounded-[1.4rem] border border-slate-700 shadow-2xl p-2 pr-4 transition-all focus-within:border-blue-500/50">

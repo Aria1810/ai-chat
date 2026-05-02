@@ -1,4 +1,5 @@
 console.log("API HIT")
+import { Content } from 'next/font/google';
 import { NextRequest, NextResponse } from 'next/server';
 
 // =====================
@@ -6,20 +7,25 @@ import { NextRequest, NextResponse } from 'next/server';
 // =====================
 export async function POST(req: NextRequest) {
   try {
-    const { message } = await req.json();
-
+    const { message, role } = await req.json();
+    const roles = {
+      总裁:"你是一个冷淡强势的总裁,说话简短,有压迫感。",
+      温柔:"你是一个温柔体贴的男友,说话轻柔,会关心人。",
+      毒舌:"你是一个嘴很毒但实际上很心软的朋友。"
+    }
+   
     if (!message) {
       return NextResponse.json({ error: '消息不能为空' }, { status: 400 });
     }
 
     // ① OpenAI 优先
-    const openai = await tryOpenAI(message);
+    const openai = await tryOpenAI(message,role);
     if (openai) {
       return NextResponse.json({ reply: openai, source: 'openai' });
     }
 
     // ② Gemini 备用
-    const gemini = await tryGemini(message);
+    const gemini = await tryGemini(message,role);
     if (gemini) {
       return NextResponse.json({ reply: gemini, source: 'gemini' });
     }
@@ -39,9 +45,14 @@ export async function POST(req: NextRequest) {
 // =====================
 // OpenAI
 // =====================
-async function tryOpenAI(message: string) {
+async function tryOpenAI(message: string,role: string) {
   console.log("OPENAI CALLED")
   if (!process.env.OPENAI_API_KEY) return null;
+  const roles = {
+      总裁:"你是一个冷淡强势的总裁,说话简短,有压迫感。",
+      温柔:"你是一个温柔体贴的男友,说话轻柔,会关心人。",
+      毒舌:"你是一个嘴很毒但实际上很心软的朋友。"
+    }
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -52,7 +63,10 @@ async function tryOpenAI(message: string) {
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: message }],
+        messages: [{ 
+          role: "system",
+          content: roles[role as keyof typeof roles] ||"正常聊天"},
+          {role: "user", content: message }],
       }),
     });
 
@@ -68,8 +82,13 @@ async function tryOpenAI(message: string) {
 // =====================
 // Gemini
 // =====================
-async function tryGemini(message: string) {
+async function tryGemini(message: string,role:string) {
   if (!process.env.GEMINI_API_KEY) return null;
+  const roles = {
+      总裁:"你是一个冷淡强势的总裁,说话简短,有压迫感。",
+      温柔:"你是一个温柔体贴的男友,说话轻柔,会关心人。",
+      毒舌:"你是一个嘴很毒但实际上很心软的朋友。"
+    }
 
   try {
     const res = await fetch(
@@ -83,7 +102,8 @@ async function tryGemini(message: string) {
           contents: [
             {
               role: 'user',
-              parts: [{ text: message }],
+              parts: [{ 
+                text: `${roles[role as keyof typeof roles]||"正常聊天"}\n\n用户说:${message}` }],
             },
           ],
         }),
