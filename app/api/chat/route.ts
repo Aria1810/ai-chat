@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // =====================
 export async function POST(req: NextRequest) {
   try {
-    const { message, role } = await req.json();
+    const { message, model, role } = await req.json();
     const roles = {
       总裁:"你是一个冷淡强势的总裁,说话简短,有压迫感。",
       温柔:"你是一个温柔体贴的男友,说话轻柔,会关心人。",
@@ -18,17 +18,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '消息不能为空' }, { status: 400 });
     }
 
-    // ① OpenAI 优先
-    const openai = await tryOpenAI(message,role);
-    if (openai) {
-      return NextResponse.json({ reply: openai, source: 'openai' });
-    }
+    // ① 二选一
+    if (model === "gpt") {
+   const openai = await tryOpenAI(message, role);
+   return NextResponse.json({ reply: openai, source: "openai" });
+  }
+    if (model === "gemini") {
+  const gemini = await tryGemini(message, role);
+  return NextResponse.json({ reply: gemini, source: "gemini" });
+  }
 
-    // ② Gemini 备用
-    const gemini = await tryGemini(message,role);
-    if (gemini) {
-      return NextResponse.json({ reply: gemini, source: 'gemini' });
-    }
 
     // ③ 兜底
     return NextResponse.json({

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function Home() {
   const [role, setRole] = useState("总裁")
+  const [model, setModel] = useState("gpt")
   const [message, setMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<{ role: 'user' | 'ai', content: string }[]>([]);
   const [loading, setLoading] = useState(false);
@@ -43,7 +44,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: userMsg,
-        role }),
+         role,
+         model }),
       });
       
       const data = await res.json();
@@ -162,6 +164,11 @@ export default function Home() {
             <option value="温柔">温柔</option>
             <option value="毒舌">毒舌</option>
           </select>
+          <select value={model} onChange={(e) => setModel(e.target.value)}>
+           <option value="gpt">GPT</option>
+            <option value="gemini">Gemini</option>
+          </select>
+
           <div className="max-w-4xl mx-auto relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-[1.5rem] blur opacity-25 group-focus-within:opacity-50 transition duration-1000"></div>
             <div className="relative flex items-end bg-[#1e293b] rounded-[1.4rem] border border-slate-700 shadow-2xl p-2 pr-4 transition-all focus-within:border-blue-500/50">
