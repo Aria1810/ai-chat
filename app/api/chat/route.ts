@@ -1,6 +1,7 @@
 console.log("API HIT")
 import { Content } from 'next/font/google';
 import { NextRequest, NextResponse } from 'next/server';
+import { text } from 'stream/consumers';
 
 // =====================
 // 主入口
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '消息不能为空' }, { status: 400 });
     }
 
-    // ① 二选一
+    // ① OpenAI 优先
     if (model === "gpt") {
    const openai = await tryOpenAI(message, role);
    return NextResponse.json({ reply: openai, source: "openai" });
@@ -91,7 +92,7 @@ async function tryGemini(message: string,role:string) {
 
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {
@@ -109,8 +110,9 @@ async function tryGemini(message: string,role:string) {
       }
     );
 
-    const data = await res.json();
-
+    const text = await res.text();
+console.log("GEMINI RAW RESPONSE:", text);
+const data = JSON.parse(text);
     return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
   } catch (err) {
     console.log('Gemini failed');
