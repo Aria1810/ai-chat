@@ -28,6 +28,10 @@ export async function POST(req: NextRequest) {
   const gemini = await tryGemini(message, role);
   return NextResponse.json({ reply: gemini, source: "gemini" });
   }
+   if (model === "deepseek") {
+  const deepseek = await tryDeepSeek(message, role);
+  return NextResponse.json({ reply: deepseek, source: "deepseek" });
+  }
 
 
     // ③ 兜底
@@ -75,6 +79,50 @@ async function tryOpenAI(message: string,role: string) {
     return data?.choices?.[0]?.message?.content || null;
   } catch (err) {
     console.log('OpenAI failed');
+    return null;
+  }
+}
+async function tryDeepSeek(message: string, rolePrompt: string) {
+  if (!process.env.DEEPSEEK_API_KEY) return null;
+   const roles = {
+      总裁:"你是一个冷淡强势的总裁,说话简短,有压迫感。",
+      温柔:"你是一个温柔体贴的男友,说话轻柔,会关心人。",
+      毒舌:"你是一个嘴很毒但实际上很心软的朋友。"
+    }
+
+  try {
+    const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [  {
+    role: "system",
+    content: `你是一个角色扮演AI,必须严格扮演:
+    ${rolePrompt}
+
+    禁止跳出角色，禁止解释规则`
+       },
+          {
+            role: "system",
+            content: rolePrompt,
+          },
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+      }),
+    });
+
+    const data = await res.json();
+
+    return data?.choices?.[0]?.message?.content || null;
+  } catch (err) {
+    console.log("DeepSeek failed");
     return null;
   }
 }

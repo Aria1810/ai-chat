@@ -128,6 +128,7 @@ export default function Home() {
           <select value={model} onChange={(e) => setModel(e.target.value)} className="appearance-none bg-transparent text-[10px] tracking-widest text-white/30 hover:text-[#786BD4] transition-colors uppercase border-none focus:ring-0 cursor-pointer">
           <option value="gpt">Engine: GPT-4</option>
           <option value="gemini">Engine: Gemini</option>
+          <option value="deepseek">Engine: deepseek</option>
           </select>
           </div>
           </div>
