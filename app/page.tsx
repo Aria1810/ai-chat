@@ -6,7 +6,6 @@ import { supabase } from "@/lib/supabase";
 import { upsertUser } from "@/lib/user";
 
 export default function Home() {
-
   const router = useRouter();
   const [search, setSearch] = useState("");
 
@@ -17,23 +16,30 @@ export default function Home() {
   ];
 
   useEffect(() => {
-  const init = async () => {
-    const { data } = await supabase.auth.getUser();
+    let mounted = true;
 
-    if (!data.user) {
-      router.push("/login");
-      return;
-    }
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
 
-    await upsertUser(data.user);
-  };
+      if (!mounted) return;
 
-  init();
-}, []);
+      if (!data.user) {
+        router.replace("/login"); // ✅ 不用 push
+        return;
+      }
 
+      await upsertUser(data.user);
+    };
+
+    init();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   return (
-    <div className="min-h-screen bg-white text-black flex">
+    <div className="min-h-screen flex bg-white text-black">
 
       {/* 左侧导航 */}
       <div className="hidden md:flex w-48 border-r flex-col p-4 gap-3">
@@ -47,7 +53,6 @@ export default function Home() {
       {/* 主内容 */}
       <div className="flex-1 p-6">
 
-        {/* 搜索 */}
         <div className="max-w-4xl mx-auto mb-6">
           <input
             value={search}
@@ -57,16 +62,14 @@ export default function Home() {
           />
         </div>
 
-        {/* 卡片 */}
         <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4">
 
           {cards.map((c) => (
             <div
               key={c.id}
               onClick={() => router.push(`/chat/${c.id}`)}
-              className="cursor-pointer rounded-2xl overflow-hidden border hover:shadow-md transition bg-white"
+              className="cursor-pointer rounded-2xl border hover:shadow-md transition bg-white overflow-hidden"
             >
-
               <div className="aspect-[3/4] bg-gray-200 flex items-center justify-center text-gray-400">
                 Image
               </div>
@@ -75,16 +78,10 @@ export default function Home() {
                 <div className="font-semibold">{c.title}</div>
                 <div className="text-sm text-gray-500">{c.desc}</div>
               </div>
-
             </div>
           ))}
 
-          <div className="rounded-2xl border border-dashed flex items-center justify-center text-gray-400 aspect-[3/4]">
-            + 更多角色
-          </div>
-
         </div>
-
       </div>
 
       {/* 手机导航 */}

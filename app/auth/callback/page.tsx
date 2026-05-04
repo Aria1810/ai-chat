@@ -9,12 +9,17 @@ export default function Callback() {
 
   useEffect(() => {
     const finish = async () => {
-      await supabase.auth.getSession();
-      router.push("/");
+      const { data } = await supabase.auth.getSession();
+
+      if (data.session) {
+        router.replace("/"); // ✅ 安全跳转
+      } else {
+        router.replace("/login");
+      }
     };
 
     finish();
-  }, []);
+  }, [router]);
 
   return <div>登录中...</div>;
 }
