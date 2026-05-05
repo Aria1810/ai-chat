@@ -1,25 +1,53 @@
 'use client';
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function ChatListPage() {
   const router = useRouter();
+  const [chats, setChats] = useState<any[]>([]);
 
-  const chats = [
-    { id: 1, name: "冷淡总裁", last: "我不喜欢重复问题。" },
-    { id: 2, name: "温柔学长", last: "今天还好吗？" },
-    { id: 3, name: "毒舌朋友", last: "你这逻辑有点离谱。" },
-  ];
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
+
+      const user_id = data.user.id;
+
+      // 🔥 最近聊天 = messages join characters
+      const { data: msgs } = await supabase
+        .from("messages")
+        .select("character_id, content, created_at, characters(name)")
+        .eq("user_id", user_id)
+        .order("created_at", { ascending: false });
+
+      // 去重（每个角色只显示一条）
+      const map = new Map();
+
+      msgs?.forEach((m: any) => {
+        if (!map.has(m.character_id)) {
+          map.set(m.character_id, {
+            id: m.character_id,
+            name: m.characters?.name || "未知角色",
+            last: m.content,
+          });
+        }
+      });
+
+      setChats(Array.from(map.values()));
+    };
+
+    init();
+  }, []);
 
   return (
     <div className="min-h-screen bg-white">
 
-      {/* 顶部 */}
       <div className="p-4 border-b font-medium">
         最近聊天
       </div>
 
-      {/* 列表 */}
       <div className="p-4 space-y-3">
 
         {chats.map((c) => (
@@ -29,10 +57,8 @@ export default function ChatListPage() {
             className="flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer"
           >
 
-            {/* 头像占位 */}
-            <div className="w-12 h-12 rounded-full bg-gray-200" />
+            <div className="w-10 h-10 rounded-full bg-gray-200" />
 
-            {/* 内容 */}
             <div className="flex-1">
               <div className="font-medium">{c.name}</div>
               <div className="text-sm text-gray-500 truncate">
@@ -45,17 +71,6 @@ export default function ChatListPage() {
 
       </div>
 
-      {/* 底部按钮（创建新聊天） */}
-      <div className="fixed bottom-5 right-5">
-        <button
-          onClick={() => router.push("/")}
-          className="bg-black text-white px-4 py-2 rounded-full text-sm"
-        >
-          + 新聊天
-        </button>
-      </div>
-
     </div>
   );
 }
-

@@ -7,19 +7,21 @@ import { supabase } from "@/lib/supabase";
 export default function Callback() {
   const router = useRouter();
 
-  useEffect(() => {
-    const finish = async () => {
-      const { data } = await supabase.auth.getSession();
+ useEffect(() => {
+  const finish = async () => {
+    const { data, error } = await supabase.auth.getSession();
 
-      if (data.session) {
-        router.replace("/"); // ✅ 安全跳转
-      } else {
-        router.replace("/login");
-      }
-    };
+    console.log("session:", data, error);
 
-    finish();
-  }, [router]);
+    if (data.session) {
+      router.replace("/");
+    } else {
+      router.replace("/login");
+    }
+  };
+
+  finish();
+}, [router]);
 
   return <div>登录中...</div>;
 }

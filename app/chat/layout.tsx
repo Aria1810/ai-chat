@@ -4,7 +4,7 @@ export default function ChatLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-screen w-full bg-black text-white flex flex-col">
+    <div className="h-screen w-full bg-[#f6f7fb] text-black flex flex-col">
       {children}
     </div>
   );

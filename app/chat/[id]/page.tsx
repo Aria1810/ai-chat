@@ -1,60 +1,165 @@
 'use client';
 
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function ChatPage() {
   const params = useParams();
   const id = params?.id;
 
-const [messages, setMessages] = useState<
-  { role: "user" | "ai"; text: string }[]
->([]);
-
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [model, setModel] = useState("gpt");
 
+  const [liked, setLiked] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+
+  // =========================
+  // 初始化：加载消息 + like状态
+  // =========================
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) return;
+
+      const user_id = data.user.id;
+
+      // 📩 读取历史消息
+      const { data: msgs } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("character_id", id)
+        .order("created_at", { ascending: true });
+
+      setMessages(
+        (msgs || []).map((m) => ({
+          role: m.role,
+          text: m.content,
+        }))
+      );
+
+      // ❤️ like
+      const { data: like } = await supabase
+        .from("likes")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("character_id", id)
+        .maybeSingle();
+
+      // ⭐ favorite
+      const { data: fav } = await supabase
+        .from("favorites")
+        .select("*")
+        .eq("user_id", user_id)
+        .eq("character_id", id)
+        .maybeSingle();
+
+      setLiked(!!like);
+      setFavorited(!!fav);
+    };
+
+    if (id) init();
+  }, [id]);
+
+  // =========================
+  // 发送消息（写数据库）
+  // =========================
   const send = async () => {
     if (!input.trim()) return;
 
     const userMsg = input;
     setInput("");
-useEffect(() => {
-  const saved = localStorage.getItem(`chat_${id}`);
-  if (saved) {
-    setMessages(JSON.parse(saved));
-  }
-}, [id]);
 
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
 
+    const user_id = data.user.id;
 
-    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+    // 1️⃣ user消息入库
+    await supabase.from("messages").insert({
+      user_id,
+      character_id: id,
+      role: "user",
+      content: userMsg,
+    });
 
+    const newUserMsg = { role: "user", text: userMsg };
+    setMessages((prev) => [...prev, newUserMsg]);
+
+    // 2️⃣ 请求AI
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: userMsg,
-        role: id,
-        model: model,   // 👈 关键：模型回来了
+        model,
       }),
     });
 
-    const data = await res.json();
+    const dataAI = await res.json();
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "ai", text: data.reply || "..." },
-    ]);
-    const updated = [
-  ...messages,
-  { role: "user", text: userMsg },
-  { role: "ai", text: data.reply },
-];
+    // 3️⃣ AI消息入库
+    await supabase.from("messages").insert({
+      user_id,
+      character_id: id,
+      role: "ai",
+      content: dataAI.reply || "...",
+    });
 
-localStorage.setItem(`chat_${id}`, JSON.stringify(updated));
+    const aiMsg = { role: "ai", text: dataAI.reply || "..." };
+    setMessages((prev) => [...prev, aiMsg]);
+  };
 
+  // =========================
+  // like
+  // =========================
+  const toggleLike = async () => {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
+
+    const user_id = data.user.id;
+
+    if (liked) {
+      await supabase
+        .from("likes")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("character_id", id);
+    } else {
+      await supabase.from("likes").insert({
+        user_id,
+        character_id: id,
+      });
+    }
+
+    setLiked(!liked);
+  };
+
+  // =========================
+  // favorite
+  // =========================
+  const toggleFavorite = async () => {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
+
+    const user_id = data.user.id;
+
+    if (favorited) {
+      await supabase
+        .from("favorites")
+        .delete()
+        .eq("user_id", user_id)
+        .eq("character_id", id);
+    } else {
+      await supabase.from("favorites").insert({
+        user_id,
+        character_id: id,
+      });
+    }
+
+    setFavorited(!favorited);
   };
 
   return (
@@ -65,16 +170,30 @@ localStorage.setItem(`chat_${id}`, JSON.stringify(updated));
 
         <div>Chat #{id}</div>
 
-        {/* 模型选择 */}
-        <select
-          value={model}
-          onChange={(e) => setModel(e.target.value)}
-          className="border px-2 py-1 rounded text-sm"
-        >
-          <option value="gpt">GPT</option>
-          <option value="gemini">Gemini</option>
-          <option value="deepseek">DeepSeek</option>
-        </select>
+        <div className="flex gap-3 items-center">
+
+          {/* like */}
+          <button onClick={toggleLike}>
+            {liked ? "❤️" : "🤍"}
+          </button>
+
+          {/* favorite */}
+          <button onClick={toggleFavorite}>
+            {favorited ? "⭐" : "☆"}
+          </button>
+
+          {/* model */}
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="border px-2 py-1 rounded text-sm"
+          >
+            <option value="gpt">GPT</option>
+            <option value="gemini">Gemini</option>
+            <option value="deepseek">DeepSeek</option>
+          </select>
+
+        </div>
 
       </div>
 
