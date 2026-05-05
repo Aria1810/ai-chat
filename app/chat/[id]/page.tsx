@@ -14,18 +14,30 @@ export default function ChatPage() {
 
   const [liked, setLiked] = useState(false);
   const [favorited, setFavorited] = useState(false);
+  const [character, setCharacter] = useState<any>(null);
 
-  // =========================
-  // 初始化：加载消息 + like状态
-  // =========================
+  // =====================
+  // 加载角色 + 数据
+  // =====================
   useEffect(() => {
-    const init = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) return;
+    if (!id) return;
 
-      const user_id = data.user.id;
+    const load = async () => {
+      // 角色信息
+      const { data: char } = await supabase
+        .from("characters")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-      // 📩 读取历史消息
+      setCharacter(char);
+
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
+
+      const user_id = user.user.id;
+
+      // 消息
       const { data: msgs } = await supabase
         .from("messages")
         .select("*")
@@ -40,7 +52,7 @@ export default function ChatPage() {
         }))
       );
 
-      // ❤️ like
+      // like
       const { data: like } = await supabase
         .from("likes")
         .select("*")
@@ -48,7 +60,7 @@ export default function ChatPage() {
         .eq("character_id", id)
         .maybeSingle();
 
-      // ⭐ favorite
+      // fav
       const { data: fav } = await supabase
         .from("favorites")
         .select("*")
@@ -60,12 +72,12 @@ export default function ChatPage() {
       setFavorited(!!fav);
     };
 
-    if (id) init();
+    load();
   }, [id]);
 
-  // =========================
-  // 发送消息（写数据库）
-  // =========================
+  // =====================
+  // 发送消息
+  // =====================
   const send = async () => {
     if (!input.trim()) return;
 
@@ -77,7 +89,6 @@ export default function ChatPage() {
 
     const user_id = data.user.id;
 
-    // 1️⃣ user消息入库
     await supabase.from("messages").insert({
       user_id,
       character_id: id,
@@ -85,22 +96,20 @@ export default function ChatPage() {
       content: userMsg,
     });
 
-    const newUserMsg = { role: "user", text: userMsg };
-    setMessages((prev) => [...prev, newUserMsg]);
+    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
 
-    // 2️⃣ 请求AI
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         message: userMsg,
         model,
+        role: id,
       }),
     });
 
     const dataAI = await res.json();
 
-    // 3️⃣ AI消息入库
     await supabase.from("messages").insert({
       user_id,
       character_id: id,
@@ -108,13 +117,15 @@ export default function ChatPage() {
       content: dataAI.reply || "...",
     });
 
-    const aiMsg = { role: "ai", text: dataAI.reply || "..." };
-    setMessages((prev) => [...prev, aiMsg]);
+    setMessages((prev) => [
+      ...prev,
+      { role: "ai", text: dataAI.reply || "..." },
+    ]);
   };
 
-  // =========================
+  // =====================
   // like
-  // =========================
+  // =====================
   const toggleLike = async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) return;
@@ -137,9 +148,9 @@ export default function ChatPage() {
     setLiked(!liked);
   };
 
-  // =========================
+  // =====================
   // favorite
-  // =========================
+  // =====================
   const toggleFavorite = async () => {
     const { data } = await supabase.auth.getUser();
     if (!data.user) return;
@@ -162,38 +173,43 @@ export default function ChatPage() {
     setFavorited(!favorited);
   };
 
+  if (!character) return <div className="p-4">加载中...</div>;
+
   return (
     <div className="h-screen flex flex-col bg-white">
 
       {/* 顶部 */}
-      <div className="border-b p-3 flex justify-between items-center text-sm">
+      <div className="flex items-center gap-3 p-3 border-b">
 
-        <div>Chat #{id}</div>
+        <img
+          src={character.avatar}
+          className="w-10 h-10 rounded-full object-cover"
+        />
 
-        <div className="flex gap-3 items-center">
-
-          {/* like */}
-          <button onClick={toggleLike}>
-            {liked ? "❤️" : "🤍"}
-          </button>
-
-          {/* favorite */}
-          <button onClick={toggleFavorite}>
-            {favorited ? "⭐" : "☆"}
-          </button>
-
-          {/* model */}
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="border px-2 py-1 rounded text-sm"
-          >
-            <option value="gpt">GPT</option>
-            <option value="gemini">Gemini</option>
-            <option value="deepseek">DeepSeek</option>
-          </select>
-
+        <div className="flex-1">
+          <div className="font-medium">{character.name}</div>
+          <div className="text-xs text-gray-500">
+            {character.description}
+          </div>
         </div>
+
+        <button onClick={toggleLike}>
+          {liked ? "❤️" : "🤍"}
+        </button>
+
+        <button onClick={toggleFavorite}>
+          {favorited ? "⭐" : "☆"}
+        </button>
+
+        <select
+          value={model}
+          onChange={(e) => setModel(e.target.value)}
+          className="border px-2 py-1 rounded text-sm"
+        >
+          <option value="gpt">GPT</option>
+          <option value="gemini">Gemini</option>
+          <option value="deepseek">DeepSeek</option>
+        </select>
 
       </div>
 
@@ -215,7 +231,7 @@ export default function ChatPage() {
 
       </div>
 
-      {/* 输入区 */}
+      {/* 输入 */}
       <div className="p-3 border-t flex gap-2">
 
         <input
