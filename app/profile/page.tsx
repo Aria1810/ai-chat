@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function ProfilePage() {
+  const router = useRouter();
+
   const [name, setName] = useState("");
   const [uid, setUid] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
@@ -15,11 +18,16 @@ export default function ProfilePage() {
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getUser();
-      if (!data.user) return;
+
+      if (!data.user) {
+        router.push("/login");
+        return;
+      }
 
       setUid(data.user.id);
       setEmail(data.user.email || "");
 
+      // 用户资料
       const { data: profile } = await supabase
         .from("users")
         .select("*")
@@ -27,10 +35,16 @@ export default function ProfilePage() {
         .single();
 
       if (profile) {
-        setName(profile.name || data.user.email?.split("@")[0] || "SUBJECT_00");
+        setName(
+          profile.name ||
+          data.user.email?.split("@")[0] ||
+          "用户"
+        );
+
         setAvatar(profile.avatar || null);
       }
 
+      // 自己创建的角色
       const { data: myCards } = await supabase
         .from("characters")
         .select("*")
@@ -38,31 +52,48 @@ export default function ProfilePage() {
         .order("created_at", { ascending: false });
 
       setCards(myCards || []);
+
       setLoading(false);
     };
-    init();
-  }, []);
 
+    init();
+  }, [router]);
+
+  // 保存昵称
   const saveName = async () => {
     setSaving(true);
+
     const { data } = await supabase.auth.getUser();
+
     if (data.user) {
       await supabase
         .from("users")
         .update({ name })
         .eq("auth_id", data.user.id);
     }
-    setTimeout(() => setSaving(false), 1000); // 模拟触觉反馈
+
+    setTimeout(() => {
+      setSaving(false);
+    }, 600);
   };
 
-  const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 上传头像
+  const handleAvatar = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
+
     if (!file) return;
+
     const reader = new FileReader();
+
     reader.onload = async () => {
       const base64 = reader.result as string;
+
       setAvatar(base64);
+
       const { data } = await supabase.auth.getUser();
+
       if (data.user) {
         await supabase
           .from("users")
@@ -70,113 +101,249 @@ export default function ProfilePage() {
           .eq("auth_id", data.user.id);
       }
     };
+
     reader.readAsDataURL(file);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-1 h-12 bg-[#786BD4] animate-pulse"></div>
+      <div className="min-h-screen bg-[#050508] flex items-center justify-center">
+        <div className="text-white/30 tracking-[0.4em] text-xs animate-pulse uppercase">
+          Loading_Profile
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white/90 selection:bg-[#786BD4]/30">
-      <div className="max-w-6xl mx-auto px-6 py-20">
-        
-        {/* 系统装饰背景 */}
-        <div className="fixed inset-0 pointer-events-none opacity-20 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
-        
-        <div className="relative z-10 grid lg:grid-cols-12 gap-16">
+    <div className="min-h-screen bg-[#050508] text-white overflow-hidden">
 
-          {/* 左侧：IDENTITY_NODE */}
-          <div className="lg:col-span-4 space-y-10">
-          <div className="relative group w-fit mx-auto lg:mx-0">
-          <label className="cursor-pointer block">
-          <div className="w-40 h-40 rounded-full border border-white/10 p-2 group-hover:border-[#786BD4]/50 transition-all duration-700">
-          <div className="w-full h-full rounded-full bg-[#111] overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-700">
-          {avatar ? (
-          <img src={avatar} className="w-full h-full object-cover" />
-          ) : (
-          <div className="w-full h-full flex items-center justify-center text-[10px] tracking-widest text-white/10">NULL_IMG</div>
-          )}
-          </div>
-          </div>
-          <input type="file" hidden onChange={handleAvatar} />
-          </label>
-          <div className="absolute -bottom-2 -right-2 bg-[#786BD4] text-black text-[9px] font-black px-2 py-1 tracking-widest uppercase">Update</div>
+      {/* 背景 */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-200px] right-[-100px] w-[500px] h-[500px] bg-[#786BD4]/10 blur-[120px] rounded-full"></div>
+        <div className="absolute bottom-[-200px] left-[-100px] w-[400px] h-[400px] bg-blue-500/5 blur-[120px] rounded-full"></div>
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-16">
+
+        {/* 顶部 */}
+        <div className="flex flex-col lg:flex-row gap-16">
+
+          {/* 左侧 */}
+          <div className="w-full lg:w-[340px]">
+
+            <div className="sticky top-10">
+
+              {/* 头像 */}
+              <div className="relative w-fit mx-auto lg:mx-0 group">
+
+                <label className="cursor-pointer block relative">
+
+                  <div className="absolute -inset-2 rounded-full bg-[#786BD4]/20 blur-xl opacity-0 group-hover:opacity-100 transition duration-700"></div>
+
+                  <div className="relative w-40 h-40 rounded-full border border-white/10 overflow-hidden bg-[#111]">
+
+                    {avatar ? (
+                      <img
+                        src={avatar}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white/10 text-xs tracking-widest">
+                        NO IMAGE
+                      </div>
+                    )}
+
+                  </div>
+
+                  <input
+                    type="file"
+                    hidden
+                    onChange={handleAvatar}
+                  />
+
+                </label>
+
+                <div className="absolute bottom-1 right-1 bg-[#786BD4] text-black text-[10px] px-3 py-1 rounded-full font-bold">
+                  编辑头像
+                </div>
+
+              </div>
+
+              {/* 信息 */}
+              <div className="mt-10 space-y-6">
+
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.4em] text-white/20 mb-2">
+                    用户ID
+                  </div>
+
+                  <div className="font-mono text-sm text-[#786BD4] break-all">
+                    {uid}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.4em] text-white/20 mb-2">
+                    邮箱
+                  </div>
+
+                  <div className="text-sm text-white/60 break-all">
+                    {email}
+                  </div>
+                </div>
+
+                {/* 名字 */}
+                <div>
+
+                  <div className="text-[10px] uppercase tracking-[0.4em] text-white/20 mb-2">
+                    昵称
+                  </div>
+
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 outline-none focus:border-[#786BD4]/50 transition-all"
+                    placeholder="输入昵称"
+                  />
+
+                </div>
+
+                <button
+                  onClick={saveName}
+                  disabled={saving}
+                  className="w-full h-12 rounded-2xl bg-white text-black font-bold hover:bg-[#786BD4] hover:text-white transition-all duration-500"
+                >
+                  {saving ? "保存中..." : "保存资料"}
+                </button>
+
+              </div>
+
+            </div>
+
           </div>
 
-          <div className="space-y-6 pt-6">
-          <div className="space-y-1">
-          <div className="text-[10px] tracking-[0.4em] text-white/20 font-black uppercase">Subject_Identifier</div>
-          <div className="text-sm font-mono text-[#786BD4] opacity-80">ID: {uid.slice(0, 16).toUpperCase()}</div>
-          <div className="text-[10px] text-white/20 font-mono">{email}</div>
-          </div>
+          {/* 右侧 */}
+          <div className="flex-1">
 
-          <div className="space-y-4">
-          <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full bg-transparent border-b border-white/10 py-3 text-xl font-light focus:outline-none focus:border-[#786BD4] transition-all placeholder:text-white/5"
-          placeholder="Insert Alias..."
-          />
-          <button
-          onClick={saveName}
-          disabled={saving}
-          className="w-full group relative overflow-hidden h-12 bg-white text-black text-[10px] font-black tracking-[0.3em] uppercase hover:bg-[#786BD4] hover:text-white transition-all duration-500"
-          >
-          <span className="relative z-10">{saving ? "Syncing..." : "Sync_Changes"}</span>
-          </button>
-          </div>
-          </div>
-          </div>
+            {/* 标题 */}
+            <div className="flex items-end justify-between mb-10">
 
-          {/* 右侧：NEURAL_ASSETS */}
-          <div className="lg:col-span-8">
-          <div className="flex items-center justify-between mb-12">
-          <div className="flex items-center gap-4">
-          <div className="w-8 h-px bg-[#786BD4]"></div>
-          <div className="text-[11px] font-black tracking-[0.5em] text-white/40 uppercase">My_Created_Protocols</div>
-          </div>
-          <div className="text-[10px] font-mono text-white/10">COUNT: {cards.length}</div>
-          </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.5em] text-[#786BD4] mb-2 font-bold">
+                  Character Archive
+                </div>
 
-          {cards.length === 0 ? (
-          <div className="h-64 flex items-center justify-center border border-dashed border-white/5 rounded-2xl">
-          <div className="text-[10px] tracking-[0.3em] text-white/20 uppercase font-black">No_Assets_Found</div>
-          </div>
-          ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {cards.map((c) => (
-          <div
-          key={c.id}
-          className="group relative bg-[#0a0a0f] border border-white/5 rounded-2xl overflow-hidden hover:border-[#786BD4]/30 transition-all duration-700"
-          >
-          <div className="h-48 overflow-hidden grayscale group-hover:grayscale-0 transition-all duration-1000">
-          <img
-          src={c.avatar || "/placeholder.png"}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
-          />
-          </div>
-          <div className="p-6">
-          <div className="flex justify-between items-start mb-2">
-          <div className="font-bold text-lg tracking-tight group-hover:text-[#786BD4] transition-colors">{c.name}</div>
-          <div className="text-[8px] bg-white/5 px-2 py-0.5 text-white/30 uppercase">Active</div>
-          </div>
-          <div className="text-xs text-white/40 font-light line-clamp-2 leading-relaxed tracking-tight">
-          {c.description}
-          </div>
-          </div>
-          </div>
-          ))}
-          </div>
-          )}
+                <div className="text-4xl font-black italic tracking-tight">
+                  我创建的角色
+                </div>
+              </div>
+
+              <div className="text-xs text-white/20 font-mono">
+                COUNT : {cards.length}
+              </div>
+
+            </div>
+
+            {/* 空状态 */}
+            {cards.length === 0 ? (
+              <div className="h-[320px] rounded-[32px] border border-dashed border-white/10 flex items-center justify-center bg-white/[0.02]">
+                <div className="text-center">
+                  <div className="text-white/20 tracking-[0.3em] text-xs uppercase">
+                    No Character Found
+                  </div>
+
+                  <button
+                    onClick={() => router.push("/create")}
+                    className="mt-6 px-6 py-3 rounded-2xl bg-[#786BD4] text-white text-sm hover:scale-105 transition-all"
+                  >
+                    去创建角色
+                  </button>
+                </div>
+              </div>
+            ) : (
+
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8">
+
+                {cards.map((c) => (
+
+                  <div
+                    key={c.id}
+                    className="group rounded-[28px] overflow-hidden bg-[#0a0a0f] border border-white/5 hover:border-[#786BD4]/40 transition-all duration-700"
+                  >
+
+                    {/* 图片 */}
+                    <div className="relative h-[320px] overflow-hidden">
+
+                      <img
+                        src={c.avatar || "/placeholder.png"}
+                        className="w-full h-full object-cover group-hover:scale-110 transition duration-1000"
+                      />
+
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent"></div>
+
+                      {/* 标签 */}
+                      <div className="absolute top-4 left-4 flex flex-wrap gap-2 max-w-[85%]">
+
+                        {c.tags?.map((tag: string, i: number) => (
+                          <div
+                            key={i}
+                            className="px-3 py-1 rounded-full bg-black/50 backdrop-blur-xl border border-white/10 text-[10px] text-white/80"
+                          >
+                            #{tag}
+                          </div>
+                        ))}
+
+                      </div>
+
+                      {/* 信息 */}
+                      <div className="absolute bottom-0 left-0 p-6 w-full">
+
+                        <div className="text-2xl font-black mb-2">
+                          {c.name}
+                        </div>
+
+                        <div className="text-sm text-white/50 line-clamp-2">
+                          {c.description}
+                        </div>
+
+                      </div>
+
+                    </div>
+
+                    {/* 按钮 */}
+                    <div className="p-5 flex gap-3">
+
+                      <button
+                        onClick={() => router.push(`/chat/${c.id}`)}
+                        className="flex-1 h-11 rounded-xl bg-white text-black text-sm font-semibold hover:bg-[#786BD4] hover:text-white transition-all"
+                      >
+                        进入聊天
+                      </button>
+
+                      <button
+                        onClick={() => router.push(`/edit/${c.id}`)}
+                        className="px-5 h-11 rounded-xl border border-white/10 text-sm hover:border-[#786BD4]/50 hover:text-[#786BD4] transition-all"
+                      >
+                        编辑
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                ))}
+
+              </div>
+
+            )}
+
           </div>
 
         </div>
+
       </div>
+
     </div>
   );
 }

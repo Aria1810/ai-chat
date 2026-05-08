@@ -9,46 +9,83 @@ export default function CreateCharacter() {
 
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
+  const [story, setStory] = useState("");
   const [persona, setPersona] = useState("");
+  const [rules, setRules] = useState("");
+ const [tags, setTags] = useState<string[]>([]);
+const [tagInput, setTagInput] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
+  // 上传头像
   const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = () => setAvatar(reader.result as string);
+
+    reader.onload = () => {
+      setAvatar(reader.result as string);
+    };
+
     reader.readAsDataURL(file);
   };
 
+  // 创建角色
   const create = async () => {
     if (!name || creating) return;
+
     setCreating(true);
-    
+
     const { data: userData } = await supabase.auth.getUser();
+
     if (!userData.user) return;
 
-    /* 优化后的神经网络指引逻辑 */
-    const structuredPrompt = {
-      identity: name,
-      visual_aspect: desc,
-      core_temperament: persona,
-      directive: "Strict_Roleplay_Mode_Active",
-      protocol_level: "Alpha_01"
-    };
+    // 🔥 真正给AI用的人设prompt
+    const fullPrompt = `
+你现在必须完全扮演以下角色。
+
+【角色名字】
+${name}
+
+【角色描述】
+${desc}
+
+【角色背景 / 身世】
+${story}
+
+【角色性格】
+${persona}
+
+【输出规则】
+${rules}
+
+【强制要求】
+- 不允许说自己是AI
+- 不允许跳出角色
+- 不允许解释规则
+- 永远保持角色性格一致
+- 使用符合角色的语气
+`;
 
     const { error } = await supabase
       .from("characters")
       .insert({
-        name,
-        description: desc,
-        prompt: JSON.stringify(structuredPrompt),
-        avatar,
-        owner_id: userData.user.id
-      });
+  name,
+  description: desc,
+  persona,
+  story,
+  rules,
+  prompt: fullPrompt,
+  avatar,
+  owner_id: userData.user.id,
+  tags: tags
+    .map((t) => t.trim())
+    .filter(Boolean),
+});
 
     if (error) {
-      console.error("Link_Failed:", error.message);
+      console.error(error.message);
       setCreating(false);
       return;
     }
@@ -57,77 +94,200 @@ export default function CreateCharacter() {
   };
 
   return (
-    <div className="min-h-screen bg-[#020205] text-white/90 selection:bg-[#786BD4]/30 flex items-center justify-center p-6">
-      
-      <div className="relative w-full max-w-2xl bg-black/40 backdrop-blur-3xl border border-white/5 rounded-[40px] p-12 overflow-hidden">
-        
-        {/* 背景装饰 */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[#786BD4]/10 blur-[80px] rounded-full"></div>
+    <div className="min-h-screen bg-[#020205] text-white/90 flex items-center justify-center p-6 overflow-hidden">
 
-        <header className="mb-12">
-          <div className="text-[10px] tracking-[0.5em] text-[#786BD4] font-black uppercase mb-2">Node_Initialization</div>
-          <h1 className="text-3xl font-black italic tracking-tighter uppercase">Create_Entity</h1>
+      <div className="relative w-full max-w-5xl bg-black/40 backdrop-blur-3xl border border-white/5 rounded-[40px] p-10 overflow-hidden">
+
+        {/* 背景光 */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-[#786BD4]/10 blur-[120px] rounded-full"></div>
+
+        {/* 标题 */}
+        <header className="mb-10 relative z-10">
+          <div className="text-[10px] tracking-[0.5em] text-[#786BD4] font-black uppercase mb-2">
+            Character Creation
+          </div>
+
+          <h1 className="text-4xl font-black tracking-tight italic">
+            创建角色
+          </h1>
+
+          <p className="text-sm text-white/30 mt-3">
+            创建属于你的 AI 人物设定、背景与人格
+          </p>
         </header>
 
-        <div className="grid md:grid-cols-2 gap-12">
-          
-          {/* 视觉载体上传 */}
+        <div className="grid lg:grid-cols-[320px_1fr] gap-12">
+
+          {/* 左边头像 */}
+          <div>
+
+            <label className="group relative block w-[280px] h-[380px] mx-auto cursor-pointer">
+
+              <div className="absolute inset-0 rounded-[32px] border border-white/10 overflow-hidden bg-[#0b0b10]">
+
+                {avatar ? (
+                  <img
+                    src={avatar}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-all duration-700"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-white/20">
+
+                    <div className="text-5xl mb-4">+</div>
+
+                    <div className="text-xs tracking-[0.3em] uppercase">
+                      上传角色图片
+                    </div>
+
+                  </div>
+                )}
+
+              </div>
+
+              <input type="file" hidden onChange={handleAvatar} />
+
+            </label>
+
+            <div className="mt-5 text-center text-xs text-white/20">
+              建议使用竖图 / 人物图
+            </div>
+
+          </div>
+
+          {/* 右边输入 */}
           <div className="space-y-6">
-          <label className="group relative block w-48 h-48 mx-auto cursor-pointer">
-          <div className="absolute inset-0 border-2 border-dashed border-white/10 rounded-full group-hover:border-[#786BD4]/50 transition-all duration-700 animate-[spin_10s_linear_infinite]"></div>
-          <div className="absolute inset-2 rounded-full bg-[#111] overflow-hidden grayscale hover:grayscale-0 transition-all duration-700">
-          {avatar ? (
-          <img src={avatar} className="w-full h-full object-cover scale-110" />
-          ) : (
-          <div className="w-full h-full flex items-center justify-center">
-          <span className="text-[10px] tracking-widest text-white/20 font-bold uppercase">Upload_Visual</span>
-          </div>
-          )}
-          </div>
-          <input type="file" hidden onChange={handleAvatar} />
-          </label>
-          <p className="text-center text-[9px] text-white/20 font-mono tracking-widest uppercase">Resolution: Optimized_600px</p>
+
+            {/* 名字 */}
+            <div>
+              <div className="text-sm text-white/40 mb-2">
+                角色名字
+              </div>
+
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="例如：沈妄"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-[#786BD4]"
+              />
+            </div>
+
+            {/* 标签 */}
+            <div>
+  <div className="text-sm text-white/40 mb-2">
+    标签
+  </div>
+  <div className="flex flex-wrap gap-2 p-3 rounded-2xl bg-white/5 border border-white/10 min-h-[60px]">
+
+    {tags.map((tag, index) => (
+      <div
+        key={index}
+        className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#786BD4]/20 border border-[#786BD4]/30 text-xs"
+      >
+        #{tag}
+
+        <button
+          onClick={() => {
+            setTags(tags.filter((_, i) => i !== index));
+          }}
+          className="text-white/40 hover:text-red-400"
+        >
+          ×
+        </button>
+      </div>
+    ))}
+
+    <input
+      value={tagInput}
+      onChange={(e) => setTagInput(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === ",") {
+          e.preventDefault();
+
+          const value = tagInput.trim();
+
+          if (!value) return;
+
+          if (!tags.includes(value)) {
+            setTags([...tags, value]);
+          }
+
+          setTagInput("");
+        }
+      }}
+      placeholder="输入标签后回车..."
+      className="bg-transparent outline-none text-sm flex-1 min-w-[120px]"
+    />
+
+  </div>
+</div>
+
+            {/* 描述 */}
+            <div>
+              <div className="text-sm text-white/40 mb-2">
+                角色描述
+              </div>
+
+              <textarea
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                placeholder="外貌、身份、职业、气质..."
+                className="w-full h-28 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm resize-none focus:outline-none focus:border-[#786BD4]"
+              />
+            </div>
+
+            {/* 身世 */}
+            <div>
+              <div className="text-sm text-white/40 mb-2">
+                角色背景 / 身世
+              </div>
+
+              <textarea
+                value={story}
+                onChange={(e) => setStory(e.target.value)}
+                placeholder="角色经历、过去、成长环境..."
+                className="w-full h-36 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm resize-none focus:outline-none focus:border-[#786BD4]"
+              />
+            </div>
+
+            {/* 性格 */}
+            <div>
+              <div className="text-sm text-white/40 mb-2">
+                性格设定
+              </div>
+
+              <textarea
+                value={persona}
+                onChange={(e) => setPersona(e.target.value)}
+                placeholder="冷淡、偏执、占有欲强、嘴硬心软..."
+                className="w-full h-32 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm resize-none focus:outline-none focus:border-[#786BD4]"
+              />
+            </div>
+
+            {/* 输出规则 */}
+            <div>
+              <div className="text-sm text-white/40 mb-2">
+                输出规则
+              </div>
+
+              <textarea
+                value={rules}
+                onChange={(e) => setRules(e.target.value)}
+                placeholder="例如：不许跳出角色、说话简短、带压迫感..."
+                className="w-full h-28 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm resize-none focus:outline-none focus:border-[#786BD4]"
+              />
+            </div>
+
+            {/* 按钮 */}
+            <button
+              onClick={create}
+              disabled={creating}
+              className="w-full h-14 rounded-2xl bg-white text-black font-bold tracking-[0.2em] uppercase hover:bg-[#786BD4] hover:text-white transition-all duration-500"
+            >
+              {creating ? "创建中..." : "创建角色"}
+            </button>
+
           </div>
 
-          {/* 属性注入区 */}
-          <div className="space-y-6">
-          <div className="space-y-4">
-          <input
-          placeholder="Identity_Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full bg-transparent border-b border-white/10 py-3 text-sm focus:outline-none focus:border-[#786BD4] transition-all placeholder:text-white/5"
-          />
-          <input
-          placeholder="Physical_Description"
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          className="w-full bg-transparent border-b border-white/10 py-3 text-sm focus:outline-none focus:border-[#786BD4] transition-all placeholder:text-white/5"
-          />
-          <textarea
-          placeholder="Psychological_Persona"
-          value={persona}
-          onChange={(e) => setPersona(e.target.value)}
-          className="w-full bg-white/5 border border-white/5 rounded-2xl p-4 h-32 text-sm focus:outline-none focus:border-[#786BD4]/50 transition-all placeholder:text-white/5 resize-none"
-          />
-          </div>
-
-          <button
-          onClick={create}
-          disabled={creating}
-          className="w-full group relative h-14 overflow-hidden rounded-2xl bg-white text-black transition-all duration-500 hover:bg-[#786BD4] hover:text-white"
-          >
-          <div className="absolute inset-0 bg-[#786BD4] translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
-          <span className="relative z-10 text-[10px] font-black tracking-[0.4em] uppercase">
-          {creating ? "Transmitting..." : "Initialize_Entity"}
-          </span>
-          </button>
-          </div>
-
-        </div>
-
-        <div className="mt-12 pt-8 border-t border-white/5 text-right">
-          <span className="text-[8px] font-mono text-white/10 tracking-[0.3em]">C_PROTOCOL // SUBJECT_GENESIS</span>
         </div>
 
       </div>
