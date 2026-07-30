@@ -4,6 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+type CharacterCard = {
+  id: string;
+  name: string;
+  avatar?: string | null;
+  description?: string | null;
+  tags?: string[] | null;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
 
@@ -12,7 +20,7 @@ export default function ProfilePage() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
-  const [cards, setCards] = useState<any[]>([]);
+  const [cards, setCards] = useState<CharacterCard[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -51,7 +59,7 @@ export default function ProfilePage() {
         .eq("owner_id", data.user.id)
         .order("created_at", { ascending: false });
 
-      setCards(myCards || []);
+      setCards((myCards as CharacterCard[] | null) || []);
 
       setLoading(false);
     };

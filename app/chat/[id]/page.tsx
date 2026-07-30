@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+
+type ChatMessage = { role: "user" | "ai"; text: string };
+type Character = { id: string; name: string; description?: string | null; avatar?: string | null };
 
 export default function ChatPage() {
   const params = useParams();
@@ -10,15 +14,16 @@ export default function ChatPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [model, setModel] = useState("gpt");
   const [liked, setLiked] = useState(false);
   const [favorited, setFavorited] = useState(false);
-  const [character, setCharacter] = useState<any>(null);
+  const [character, setCharacter] = useState<Character | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const userRef = useRef<any>(null);
+  const userRef = useRef<User | null>(null);
 
   // ======================
   // 初始化
@@ -41,7 +46,7 @@ export default function ChatPage() {
         .eq("id", id)
         .single();
 
-      setCharacter(char);
+      setCharacter(char as Character | null);
 
       // 历史消息（记忆）
       const { data: msgs } = await supabase
@@ -101,7 +106,13 @@ export default function ChatPage() {
     const user = userRef.current;
     if (!user) return;
 
-    const user_id = user.id;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setError("登录已失效，请重新登录。");
+      setLoading(false);
+      return;
+    }
 
     // 先显示用户消息
     setMessages((prev) => [
@@ -109,29 +120,33 @@ export default function ChatPage() {
       { role: "user", text: userMsg },
     ]);
 
-    const res = await fetch("/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        message: userMsg,
-        model,
-        user_id,
-        character_id: id,
-      }),
-    });
+    setError("");
 
-    const dataAI = await res.json();
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message: userMsg,
+          model,
+          character_id: id,
+        }),
+      });
 
-    const aiReply = dataAI.reply || "...";
+      const dataAI = await res.json();
+      if (!res.ok || !dataAI.reply) {
+        throw new Error(dataAI.error || "暂时无法获得回复，请稍后重试。");
+      }
 
-    setMessages((prev) => [
-      ...prev,
-      { role: "ai", text: aiReply },
-    ]);
-
-    setLoading(false);
+      setMessages((prev) => [...prev, { role: "ai", text: dataAI.reply }]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "发送失败，请稍后重试。");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ======================
@@ -201,7 +216,7 @@ export default function ChatPage() {
       <header className="flex items-center gap-6 p-6 border-b border-white/5 bg-black/40 backdrop-blur-2xl z-20">
         <div className="relative group">
           <div className="absolute -inset-1 bg-[#786BD4] rounded-full blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-          <img src={character.avatar} className="relative w-12 h-12 rounded-full object-cover border border-white/10" />
+          <img src={character.avatar || "/placeholder.png"} alt="" className="relative w-12 h-12 rounded-full object-cover border border-white/10" />
         </div>
 
         <div className="flex-1">
@@ -236,6 +251,7 @@ export default function ChatPage() {
         {loading && (
           <div className="text-white/40">typing...</div>
         )}
+        {error && <div className="text-sm text-red-300" role="alert">{error}</div>}
       </div>
 
       {/* 输入 */}

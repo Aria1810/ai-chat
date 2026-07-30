@@ -2,19 +2,46 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { upsertUser } from "@/lib/user";
+
+type Character = {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  tags?: string[] | null;
+  avatar?: string | null;
+};
+
+/* =========================
+   用户初始化函数（单独放）
+========================= */
+async function upsertUser(user: User) {
+  if (!user) return;
+
+  const { error } = await supabase.from("users").upsert({
+    auth_id: user.id,
+    email: user.email,
+    name: user.email?.split("@")[0] || "user",
+    avatar: null,
+  });
+
+  if (error) {
+    console.error("upsertUser error:", error.message);
+  }
+}
 
 export default function Home() {
   const router = useRouter();
 
   const [search, setSearch] = useState("");
-  const [characters, setCharacters] = useState<any[]>([]);
+  const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const init = async () => {
-      const { data } = await supabase.auth.getUser();
+     const { data } = await supabase.auth.getUser();
+console.log("USER CHECK:", data);
 
       if (!data.user) {
         router.replace("/login");
@@ -28,7 +55,7 @@ export default function Home() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      setCharacters(chars || []);
+      setCharacters((chars as Character[] | null) || []);
       setLoading(false);
     };
 
@@ -37,6 +64,8 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex bg-[#050508] text-white/90 font-sans selection:bg-[#786BD4]/30 overflow-hidden">
+
+      {/* 👇 下面你的UI完全不动 */}
 
       {/* 左侧导航 */}
       <aside className="hidden md:flex w-64 border-r border-white/5 bg-black/50 backdrop-blur-3xl flex-col p-8 gap-10 z-30">

@@ -1,7 +1,8 @@
 import { supabase } from "./supabase";
+import type { User } from "@supabase/supabase-js";
 
 // 获取或创建用户
-export async function upsertUser(user: any) {
+export async function upsertUser(user: User) {
 
   const { data: existing } = await supabase
     .from("users")

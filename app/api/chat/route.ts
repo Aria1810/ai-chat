@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+type ChatHistoryItem = {
+  role: "user" | "ai" | "assistant" | "system";
+  content: string;
+};
+
 // =========================
 // Supabase
 // =========================
@@ -17,16 +22,31 @@ export async function POST(req: NextRequest) {
     const {
       message,
       model,
-      user_id,
       character_id,
     } = await req.json();
 
-    if (!message) {
+    if (typeof message !== "string" || !message.trim() || typeof character_id !== "string") {
       return NextResponse.json(
-        { error: "empty message" },
+        { error: "请输入消息后再发送。" },
         { status: 400 }
       );
     }
+
+    if (model !== "gpt" && model !== "gemini" && model !== "deepseek") {
+      return NextResponse.json({ error: "不支持的聊天模型。" }, { status: 400 });
+    }
+
+    const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+    if (!token) {
+      return NextResponse.json({ error: "登录已失效，请重新登录。" }, { status: 401 });
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData.user) {
+      return NextResponse.json({ error: "登录已失效，请重新登录。" }, { status: 401 });
+    }
+
+    const user_id = authData.user.id;
 
     // =========================
     // 1️⃣ 获取角色
@@ -133,7 +153,7 @@ export async function POST(req: NextRequest) {
 async function callOpenAI(
   message: string,
   systemPrompt: string,
-  history: any[]
+  history: ChatHistoryItem[]
 ) {
   const res = await fetch(
     "https://api.openai.com/v1/chat/completions",
@@ -184,7 +204,7 @@ ${systemPrompt}
 async function callGemini(
   message: string,
   systemPrompt: string,
-  history: any[]
+  history: ChatHistoryItem[]
 ) {
   const historyText = history
     .map(
@@ -237,7 +257,7 @@ ${message}
 async function callDeepSeek(
   message: string,
   systemPrompt: string,
-  history: any[]
+  history: ChatHistoryItem[]
 ) {
   const res = await fetch(
     "https://api.deepseek.com/chat/completions",

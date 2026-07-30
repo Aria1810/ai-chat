@@ -4,9 +4,25 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+type ChatPreview = {
+  id: string;
+  name: string;
+  avatar?: string | null;
+  desc?: string | null;
+  last: string;
+  time: string;
+};
+
+type MessageRow = {
+  character_id: string;
+  content: string;
+  created_at: string;
+  characters?: { name?: string | null; avatar?: string | null; description?: string | null } | null;
+};
+
 export default function ChatListPage() {
   const router = useRouter();
-  const [chats, setChats] = useState<any[]>([]);
+  const [chats, setChats] = useState<ChatPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,7 +38,7 @@ export default function ChatListPage() {
         .order("created_at", { ascending: false });
 
       const uniqueThreads = new Map();
-      msgs?.forEach((m: any) => {
+      (msgs as MessageRow[] | null)?.forEach((m) => {
         if (!uniqueThreads.has(m.character_id)) {
           uniqueThreads.set(m.character_id, {
           id: m.character_id,
@@ -72,7 +88,7 @@ export default function ChatListPage() {
 
           <div className="relative">
           <div className="absolute -inset-1 bg-[#786BD4] rounded-full blur opacity-0 group-hover:opacity-30 transition duration-1000"></div>
-          <img src={c.avatar} className="relative w-14 h-14 rounded-full object-cover border border-white/10 grayscale group-hover:grayscale-0 transition-all duration-700" />
+          <img src={c.avatar || "/placeholder.png"} alt="" className="relative w-14 h-14 rounded-full object-cover border border-white/10 grayscale group-hover:grayscale-0 transition-all duration-700" />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -81,7 +97,7 @@ export default function ChatListPage() {
           <span className="text-[9px] font-mono text-white/10">{c.time}</span>
           </div>
           <p className="text-xs text-white/40 truncate font-light tracking-wide italic">
-          "{c.last}"
+            &quot;{c.last}&quot;
           </p>
           </div>
 
