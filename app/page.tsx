@@ -87,6 +87,8 @@ console.log("USER CHECK:", data);
             { label: "CHAT // 聊天", path: "/chat" },
             { label: "CREATE // 创建", path: "/create" },
             { label: "PROFILE // 个人", path: "/profile" },
+            { label: "PERSONA // 人设", path: "/persona" },
+            { label: "USAGE // 用量", path: "/usage" },
             { label: "RECHARGE // 充值", path: "/recharge" },
           ].map((item) => (
             <button
@@ -164,7 +166,7 @@ console.log("USER CHECK:", data);
                   .map((c) => (
                     <div
                       key={c.id}
-                      onClick={() => router.push(`/chat/${c.id}`)}
+                      onClick={() => router.push(`/character/${c.id}`)}
                       className="
                       group
                       relative

@@ -2,6 +2,21 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+## SomiChat product upgrade
+
+Run `supabase/migrations/20260805_product_upgrade.sql` once in the Supabase SQL Editor before using the new features. The upgrade provides user personas, comments, expanded character fields, and per-request model usage records.
+
+For reliable server-side message and usage persistence, configure these server-only environment variables in addition to the existing public Supabase values and model keys:
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY=...
+OPENAI_API_KEY=...
+GEMINI_API_KEY=...
+DEEPSEEK_API_KEY=...
+```
+
+Never prefix `SUPABASE_SERVICE_ROLE_KEY` with `NEXT_PUBLIC_`.
+
 First, run the development server:
 
 ```bash

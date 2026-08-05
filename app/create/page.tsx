@@ -15,6 +15,10 @@ export default function CreateCharacter() {
  const [tags, setTags] = useState<string[]>([]);
 const [tagInput, setTagInput] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState("");
+  const [openingMessage, setOpeningMessage] = useState("");
+  const [outputSettings, setOutputSettings] = useState("");
+  const [isPublished, setIsPublished] = useState(true);
   const [creating, setCreating] = useState(false);
 
   // 上传头像
@@ -78,6 +82,10 @@ ${rules}
   rules,
   prompt: fullPrompt,
   avatar,
+  cover_url: coverUrl || null,
+  opening_message: openingMessage || null,
+  output_settings: outputSettings || null,
+  is_published: isPublished,
   owner_id: userData.user.id,
   tags: tags
     .map((t) => t.trim())
@@ -277,6 +285,19 @@ ${rules}
               />
             </div>
 
+            <div>
+              <div className="text-sm text-white/40 mb-2">封面图链接（可选）</div>
+              <input value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} placeholder="https://..." className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm" />
+            </div>
+            <div>
+              <div className="text-sm text-white/40 mb-2">开场白</div>
+              <textarea value={openingMessage} onChange={(e) => setOpeningMessage(e.target.value)} placeholder="角色初次见面时说的话" className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm" />
+            </div>
+            <div>
+              <div className="text-sm text-white/40 mb-2">输出风格 / 格式</div>
+              <textarea value={outputSettings} onChange={(e) => setOutputSettings(e.target.value)} placeholder="例如：每次不超过三段，动作使用 *斜体*" className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm" />
+            </div>
+            <label className="flex items-center gap-3 text-sm text-white/70"><input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />公开发布（关闭后仅自己可见）</label>
             {/* 按钮 */}
             <button
               onClick={create}
