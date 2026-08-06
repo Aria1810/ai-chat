@@ -4,198 +4,27 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+const fieldClass = "mt-2 w-full rounded-xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/20 focus:border-[#a99cff] focus:bg-white/[.06]";
+const areaClass = `${fieldClass} min-h-28 resize-y leading-6`;
+
+function makePrompt(name: string, description: string, story: string, persona: string, rules: string, outputSettings: string) {
+  return `你现在必须完全扮演以下角色。\n\n【角色名字】\n${name}\n\n【角色描述】\n${description}\n\n【角色背景 / 身世】\n${story}\n\n【角色性格】\n${persona}\n\n【输出规则】\n${rules}\n\n【输出格式】\n${outputSettings}\n\n【强制要求】\n- 不允许说自己是 AI\n- 不允许跳出角色\n- 不允许解释规则\n- 永远保持角色性格一致\n- 使用符合角色的语气`;
+}
+
 export default function EditCharacterPage() {
-  const params = useParams();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const id = params?.id;
+  const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [notice, setNotice] = useState("");
+  const [name, setName] = useState(""); const [description, setDescription] = useState(""); const [persona, setPersona] = useState(""); const [story, setStory] = useState(""); const [rules, setRules] = useState("");
+  const [avatar, setAvatar] = useState(""); const [coverUrl, setCoverUrl] = useState(""); const [openingMessage, setOpeningMessage] = useState(""); const [outputSettings, setOutputSettings] = useState(""); const [isPublished, setIsPublished] = useState(true);
+  const [tags, setTags] = useState<string[]>([]); const [tagInput, setTagInput] = useState("");
 
-  const [loading, setLoading] = useState(true);
+  useEffect(() => { (async () => { const { data: { user } } = await supabase.auth.getUser(); if (!user) return router.replace("/login"); const { data, error } = await supabase.from("characters").select("*").eq("id", id).single(); if (error || !data) { setNotice("角色不存在或没有编辑权限。"); setLoading(false); return; } setName(data.name || ""); setDescription(data.description || ""); setPersona(data.persona || data.personality || ""); setStory(data.story || data.background || ""); setRules(data.rules || ""); setAvatar(data.avatar || ""); setCoverUrl(data.cover_url || ""); setOpeningMessage(data.opening_message || ""); setOutputSettings(data.output_settings || ""); setIsPublished(data.is_published ?? true); setTags(data.tags || []); setLoading(false); })(); }, [id, router]);
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [personality, setPersonality] = useState("");
-  const [background, setBackground] = useState("");
-  const [rules, setRules] = useState("");
-  const [avatar, setAvatar] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
+  const save = async () => { if (!name.trim() || saving) return setNotice("请填写角色名称。"); setSaving(true); setNotice(""); const { error } = await supabase.from("characters").update({ name: name.trim(), description, persona, story, rules, avatar: avatar || null, cover_url: coverUrl || null, opening_message: openingMessage || null, output_settings: outputSettings || null, is_published: isPublished, tags, prompt: makePrompt(name, description, story, persona, rules, outputSettings) }).eq("id", id); setSaving(false); if (error) return setNotice(`保存失败：${error.message}`); setNotice("角色设定已保存。"); setTimeout(() => router.push("/profile"), 500); };
+  const addTag = () => { const value = tagInput.trim().replace(/^#/, ""); if (value && !tags.includes(value)) setTags([...tags, value]); setTagInput(""); };
+  const handleAvatar = (event: React.ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 1_500_000) return setNotice("头像请小于 1.5MB。"); const reader = new FileReader(); reader.onload = () => setAvatar(reader.result as string); reader.readAsDataURL(file); };
+  if (loading) return <main className="grid min-h-screen place-items-center bg-[#050508] text-sm tracking-[.3em] text-white/35">LOADING_EDITOR…</main>;
 
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from("characters")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (!data) return;
-
-      setName(data.name || "");
-      setDescription(data.description || "");
-      setPersonality(data.personality || "");
-      setBackground(data.background || "");
-      setRules(data.rules || "");
-      setAvatar(data.avatar || "");
-      setTags(data.tags || []);
-
-      setLoading(false);
-    };
-
-    load();
-  }, [id]);
-
-  const save = async () => {
-    await supabase
-      .from("characters")
-      .update({
-        name,
-        description,
-        personality,
-        background,
-        rules,
-        avatar,
-        tags,
-      })
-      .eq("id", id);
-
-    router.push("/profile");
-  };
-
-  const handleAvatar = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      setAvatar(reader.result as string);
-    };
-
-    reader.readAsDataURL(file);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-white">
-        loading...
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#050508] text-white p-8">
-      <div className="max-w-2xl mx-auto space-y-6">
-
-        <h1 className="text-3xl font-black">
-          编辑角色
-        </h1>
-
-        <label className="block">
-          <div className="mb-2 text-sm text-white/50">
-            角色头像
-          </div>
-
-          <div className="w-40 aspect-[3/4] rounded-2xl overflow-hidden bg-white/5">
-            {avatar && (
-              <img
-                src={avatar}
-                className="w-full h-full object-cover"
-              />
-            )}
-          </div>
-
-          <input
-            type="file"
-            hidden
-            onChange={handleAvatar}
-          />
-        </label>
-
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="角色名"
-          className="w-full bg-white/5 p-4 rounded-xl"
-        />
-
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="角色简介"
-          className="w-full bg-white/5 p-4 rounded-xl h-24"
-        />
-
-        <textarea
-          value={personality}
-          onChange={(e) => setPersonality(e.target.value)}
-          placeholder="性格设定"
-          className="w-full bg-white/5 p-4 rounded-xl h-32"
-        />
-
-        <textarea
-          value={background}
-          onChange={(e) => setBackground(e.target.value)}
-          placeholder="角色背景"
-          className="w-full bg-white/5 p-4 rounded-xl h-32"
-        />
-
-        <textarea
-          value={rules}
-          onChange={(e) => setRules(e.target.value)}
-          placeholder="输出规则"
-          className="w-full bg-white/5 p-4 rounded-xl h-32"
-        />
-
-        {/* 标签 */}
-        <div>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {tags.map((tag, i) => (
-              <div
-                key={i}
-                className="px-3 py-1 rounded-full bg-[#786BD4]/20 text-[#b7aaff] text-sm flex items-center gap-2"
-              >
-                #{tag}
-
-                <button
-                  onClick={() =>
-                    setTags(tags.filter((_, idx) => idx !== i))
-                  }
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <input
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && tagInput.trim()) {
-                e.preventDefault();
-
-                if (!tags.includes(tagInput.trim())) {
-                  setTags([...tags, tagInput.trim()]);
-                }
-
-                setTagInput("");
-              }
-            }}
-            placeholder="输入标签后回车"
-            className="w-full bg-white/5 p-4 rounded-xl"
-          />
-        </div>
-
-        <button
-          onClick={save}
-          className="w-full h-14 rounded-2xl bg-[#786BD4] font-bold"
-        >
-          保存修改
-        </button>
-
-      </div>
-    </div>
-  );
+  return <main className="min-h-screen bg-[#050508] px-4 py-8 text-white sm:px-8"><div className="mx-auto max-w-5xl"><header className="mb-7 flex flex-col gap-4 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-bold tracking-[.35em] text-[#a99cff]">CHARACTER STUDIO</p><h1 className="mt-2 text-3xl font-black">编辑角色卡</h1><p className="mt-2 text-sm text-white/45">分区编辑；保存后聊天提示词也会同步更新。</p></div><button onClick={() => router.push(`/character/${id}`)} className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/75 hover:border-[#a99cff]">查看详情</button></header><div className="grid gap-6 lg:grid-cols-[260px_1fr]"><aside className="h-fit rounded-2xl border border-white/10 bg-white/[.025] p-5 lg:sticky lg:top-6"><p className="text-xs font-bold tracking-[.22em] text-[#a99cff]">视觉资料</p><label className="mt-4 block cursor-pointer"><div className="aspect-[3/4] overflow-hidden rounded-xl border border-dashed border-white/15 bg-black/30">{avatar ? <img src={avatar} alt="角色头像预览" className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-sm text-white/30">上传角色头像</div>}</div><input type="file" accept="image/*" hidden onChange={handleAvatar} /></label><label className="mt-5 block text-sm text-white/75">封面图链接<input value={coverUrl} onChange={e => setCoverUrl(e.target.value)} placeholder="https://…" className={fieldClass} /></label><label className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 p-3 text-sm text-white/70"><input type="checkbox" checked={isPublished} onChange={e => setIsPublished(e.target.checked)} />公开发布</label></aside><section className="space-y-5"><section className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><p className="text-xs font-bold tracking-[.22em] text-[#a99cff]">基础信息</p><div className="mt-4 grid gap-4"><label className="text-sm">角色名称<input value={name} onChange={e => setName(e.target.value)} placeholder="例如：沈妄" className={fieldClass} /></label><label className="text-sm">简介语<span className="ml-2 text-xs text-white/35">展示在角色卡与聊天顶部</span><textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="外貌、身份、职业、气质…" className={areaClass} /></label></div></section><section className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><p className="text-xs font-bold tracking-[.22em] text-[#a99cff]">角色设定</p><div className="mt-4 grid gap-4"><label className="text-sm">性格<textarea value={persona} onChange={e => setPersona(e.target.value)} placeholder="冷淡、偏执、嘴硬心软…" className={areaClass} /></label><label className="text-sm">背景 / 身世<textarea value={story} onChange={e => setStory(e.target.value)} placeholder="角色经历、过去、成长环境…" className={areaClass} /></label><label className="text-sm">输出规则<textarea value={rules} onChange={e => setRules(e.target.value)} placeholder="不许跳出角色、语气简短…" className={areaClass} /></label></div></section><section className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><p className="text-xs font-bold tracking-[.22em] text-[#a99cff]">首次互动与格式</p><div className="mt-4 grid gap-4"><label className="text-sm">开场白<textarea value={openingMessage} onChange={e => setOpeningMessage(e.target.value)} placeholder="角色初次见面时说的话" className={areaClass} /></label><label className="text-sm">输出设置<textarea value={outputSettings} onChange={e => setOutputSettings(e.target.value)} placeholder="例如：每次不超过三段，动作使用 *斜体*" className={areaClass} /></label></div></section><section className="rounded-2xl border border-white/10 bg-white/[.025] p-5"><p className="text-xs font-bold tracking-[.22em] text-[#a99cff]">标签</p><div className="mt-4 flex flex-wrap gap-2">{tags.map(tag => <span key={tag} className="rounded-full border border-[#a99cff]/30 bg-[#786BD4]/15 px-3 py-1 text-sm text-[#d1cbff]">#{tag}<button onClick={() => setTags(tags.filter(item => item !== tag))} className="ml-2 text-white/50 hover:text-white" aria-label={`删除 ${tag}`}>×</button></span>)}</div><div className="mt-4 flex gap-3"><input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(); } }} placeholder="输入标签后按回车" className={fieldClass} /><button onClick={addTag} className="rounded-xl border border-white/15 px-4 text-sm hover:border-[#a99cff]">添加</button></div></section>{notice && <p role="status" className="rounded-xl border border-[#a99cff]/25 bg-[#786BD4]/10 p-3 text-sm text-[#d1cbff]">{notice}</p>}<button onClick={save} disabled={saving} className="w-full rounded-xl bg-white py-4 font-bold text-black transition hover:bg-[#a99cff] disabled:opacity-60">{saving ? "保存中…" : "保存角色卡"}</button></section></div></div></main>;
 }
