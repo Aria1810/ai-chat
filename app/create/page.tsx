@@ -301,6 +301,7 @@ ${rules}
               <textarea value={outputSettings} onChange={(e) => setOutputSettings(e.target.value)} placeholder="例如：每次不超过三段，动作使用 *斜体*" className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm" />
             </div>
             <label className="flex items-center gap-3 text-sm text-white/70"><input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />公开发布（关闭后仅自己可见）</label>
+            <div><div className="text-sm text-white/40 mb-2">聊天主题 CSS</div><textarea value={chatStyle} onChange={(e) => setChatStyle(e.target.value)} placeholder="background: radial-gradient(circle at top, #44215f, #08040c); --chat-accent: #e0aaff;" className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm" /><p className="mt-2 text-xs text-white/30">为该角色的聊天页面设定独立背景基调。</p></div>
             {/* 按钮 */}
             <button
               onClick={create}

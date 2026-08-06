@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import GlobalNav from "@/components/GlobalNav";
 
 export const metadata: Metadata = {
   title: "Arch_Matrix // Grid System",
@@ -20,6 +21,7 @@ export default function RootLayout({
 
         <main className="min-h-screen flex flex-col">
           {children}
+          <GlobalNav />
         </main>
 
         {/* ⚠️ 已修复：不再影响点击 */}
