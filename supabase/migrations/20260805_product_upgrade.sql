@@ -3,6 +3,9 @@ alter table public.characters add column if not exists cover_url text;
 alter table public.characters add column if not exists opening_message text;
 alter table public.characters add column if not exists output_settings text;
 alter table public.characters add column if not exists is_published boolean not null default true;
+alter table public.characters add column if not exists chat_style text;
+alter table public.characters add column if not exists approval_status text not null default 'approved' check (approval_status in ('pending', 'approved', 'rejected'));
+alter table public.messages add column if not exists conversation_id uuid;
 alter table public.users add column if not exists is_admin boolean not null default false;
 
 create table if not exists public.user_personas (
@@ -27,6 +30,7 @@ create table if not exists public.model_usage (
 );
 create index if not exists character_comments_character_created_idx on public.character_comments(character_id, created_at desc);
 create index if not exists model_usage_user_created_idx on public.model_usage(user_id, created_at desc);
+create index if not exists messages_conversation_created_idx on public.messages(user_id, character_id, conversation_id, created_at);
 
 alter table public.user_personas enable row level security;
 alter table public.character_comments enable row level security;
@@ -46,6 +50,8 @@ create policy "Users add their own comments" on public.character_comments for in
 create policy "Users or admins remove comments" on public.character_comments for delete to authenticated using ((select auth.uid()) = user_id or public.is_platform_admin());
 create policy "Users view their own usage" on public.model_usage for select to authenticated using ((select auth.uid()) = user_id or public.is_platform_admin());
 create policy "Users manage their own profile" on public.users for all to authenticated using ((select auth.uid()) = auth_id) with check ((select auth.uid()) = auth_id);
+drop policy if exists "Admins review characters" on public.characters;
+create policy "Admins review characters" on public.characters for update to authenticated using (public.is_platform_admin()) with check (public.is_platform_admin());
 
 -- The chat route writes usage with SUPABASE_SERVICE_ROLE_KEY. Keep this key server-only;
 -- do not expose it through NEXT_PUBLIC_* variables.

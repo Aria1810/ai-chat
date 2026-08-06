@@ -22,7 +22,7 @@ function costFor(model: string, inputTokens: number, outputTokens: number) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, model, character_id } = await req.json();
+    const { message, model, character_id, conversation_id, regenerate = false } = await req.json();
     if (typeof message !== "string" || !message.trim() || typeof character_id !== "string") {
       return NextResponse.json({ error: "请输入消息后再发送。" }, { status: 400 });
     }
@@ -39,8 +39,13 @@ export async function POST(req: NextRequest) {
     const { data: character } = await userDatabase.from("characters").select("id, prompt, name, opening_message, output_settings").eq("id", character_id).single();
     if (!character) return NextResponse.json({ error: "角色不存在或不可访问。" }, { status: 404 });
 
-    const { data: history } = await userDatabase.from("messages").select("role, content").eq("user_id", userId).eq("character_id", character_id).order("created_at", { ascending: false }).limit(20);
-    const orderedHistory = ((history ?? []) as HistoryItem[]).reverse();
+    let historyQuery = userDatabase.from("messages").select("id, role, content").eq("user_id", userId).eq("character_id", character_id).order("created_at", { ascending: false }).limit(20);
+    historyQuery = conversation_id ? historyQuery.eq("conversation_id", conversation_id) : historyQuery.is("conversation_id", null);
+    const { data: history } = await historyQuery;
+    const recentHistory = (history ?? []) as (HistoryItem & { id: string })[];
+    if (regenerate && recentHistory[0]?.role === "ai") recentHistory.shift();
+    if (regenerate && recentHistory[0]?.role === "user") recentHistory.shift();
+    const orderedHistory = recentHistory.reverse();
     const { data: persona } = await userDatabase.from("user_personas").select("display_name, gender, age, background, personality, preferences").eq("user_id", userId).maybeSingle();
     const personaPrompt = persona ? `\n\n用户人设（尊重其偏好，不要复述此段）：\n${JSON.stringify(persona)}` : "";
     const outputPrompt = character.output_settings ? `\n\n输出格式要求：\n${character.output_settings}` : "";
@@ -53,10 +58,11 @@ export async function POST(req: NextRequest) {
     if (!result.reply) return NextResponse.json({ error: "模型没有返回可用回复。" }, { status: 502 });
 
     const writer = serviceDatabase ?? userDatabase;
-    const { error: messageError } = await writer.from("messages").insert([
-      { user_id: userId, character_id, role: "user", content: message.trim() },
-      { user_id: userId, character_id, role: "ai", content: result.reply },
-    ]);
+    if (regenerate && history?.[0]?.role === "ai") await writer.from("messages").delete().eq("id", history[0].id);
+    const records = regenerate
+      ? [{ user_id: userId, character_id, conversation_id: conversation_id || null, role: "ai", content: result.reply }]
+      : [{ user_id: userId, character_id, conversation_id: conversation_id || null, role: "user", content: message.trim() }, { user_id: userId, character_id, conversation_id: conversation_id || null, role: "ai", content: result.reply }];
+    const { error: messageError } = await writer.from("messages").insert(records);
     if (messageError) console.error("message persistence error", messageError.message);
     const costUsd = costFor(result.model, result.inputTokens, result.outputTokens);
     const { error: usageError } = await writer.from("model_usage").insert({

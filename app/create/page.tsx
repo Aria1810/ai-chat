@@ -18,6 +18,7 @@ const [tagInput, setTagInput] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
   const [openingMessage, setOpeningMessage] = useState("");
   const [outputSettings, setOutputSettings] = useState("");
+  const [chatStyle, setChatStyle] = useState("");
   const [isPublished, setIsPublished] = useState(true);
   const [creating, setCreating] = useState(false);
 
@@ -86,6 +87,8 @@ ${rules}
   opening_message: openingMessage || null,
   output_settings: outputSettings || null,
   is_published: isPublished,
+  approval_status: "pending",
+  chat_style: chatStyle,
   owner_id: userData.user.id,
   tags: tags
     .map((t) => t.trim())

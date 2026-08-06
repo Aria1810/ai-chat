@@ -36,3 +36,15 @@ body {
 *::-webkit-scrollbar-thumb:hover { background: rgba(190, 181, 255, 0.85); }
 
 ::selection { background: rgba(169, 156, 255, 0.34); color: #fff; }
+
+@media (max-width: 640px) {
+  html, body { overflow-x: hidden; }
+  body { min-width: 320px; }
+  input, select, textarea { font-size: 16px !important; }
+  button { min-height: 40px; }
+  .character-chat-theme header { gap: 10px; padding: 12px; }
+  .character-chat-theme header > div { min-width: 0; }
+  .character-chat-theme header select { max-width: 132px; }
+  .character-chat-theme footer { padding: 10px; }
+  .character-chat-theme footer > div { align-items: stretch; }
+}

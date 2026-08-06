@@ -49,6 +49,8 @@ console.log("USER CHECK:", data);
       const { data: chars } = await supabase
         .from("characters")
         .select("*")
+        .eq("approval_status", "approved")
+        .eq("is_published", true)
         .order("created_at", { ascending: false });
 
       setCharacters((chars as Character[] | null) || []);
