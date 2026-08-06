@@ -17,6 +17,8 @@ DEEPSEEK_API_KEY=...
 
 Never prefix `SUPABASE_SERVICE_ROLE_KEY` with `NEXT_PUBLIC_`.
 
+For password recovery, add both `https://www.somichat.com/auth/callback` and your Vercel preview URL pattern to Supabase **Authentication → URL Configuration → Redirect URLs**. Set `https://www.somichat.com` as the Site URL. The login screen then sends a recovery email and the callback securely opens `/reset-password`.
+
 First, run the development server:
 
 ```bash

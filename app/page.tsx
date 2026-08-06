@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { ensureUserProfile } from "@/lib/user";
 
 type Character = {
   id: string;
@@ -19,12 +20,7 @@ type Character = {
 async function upsertUser(user: User) {
   if (!user) return;
 
-  const { error } = await supabase.from("users").upsert({
-    auth_id: user.id,
-    email: user.email,
-    name: user.email?.split("@")[0] || "user",
-    avatar: null,
-  });
+  const { error } = await ensureUserProfile(user);
 
   if (error) {
     console.error("upsertUser error:", error.message);

@@ -31,13 +31,21 @@ create index if not exists model_usage_user_created_idx on public.model_usage(us
 alter table public.user_personas enable row level security;
 alter table public.character_comments enable row level security;
 alter table public.model_usage enable row level security;
+alter table public.users enable row level security;
 create or replace function public.is_platform_admin() returns boolean language sql stable security definer set search_path = public
 as $$ select exists (select 1 from public.users where auth_id = auth.uid() and is_admin = true) $$;
+drop policy if exists "Users manage their own persona" on public.user_personas;
+drop policy if exists "Anyone can read comments" on public.character_comments;
+drop policy if exists "Users add their own comments" on public.character_comments;
+drop policy if exists "Users or admins remove comments" on public.character_comments;
+drop policy if exists "Users view their own usage" on public.model_usage;
+drop policy if exists "Users manage their own profile" on public.users;
 create policy "Users manage their own persona" on public.user_personas for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 create policy "Anyone can read comments" on public.character_comments for select to authenticated using (true);
 create policy "Users add their own comments" on public.character_comments for insert to authenticated with check ((select auth.uid()) = user_id);
 create policy "Users or admins remove comments" on public.character_comments for delete to authenticated using ((select auth.uid()) = user_id or public.is_platform_admin());
 create policy "Users view their own usage" on public.model_usage for select to authenticated using ((select auth.uid()) = user_id or public.is_platform_admin());
+create policy "Users manage their own profile" on public.users for all to authenticated using ((select auth.uid()) = auth_id) with check ((select auth.uid()) = auth_id);
 
 -- The chat route writes usage with SUPABASE_SERVICE_ROLE_KEY. Keep this key server-only;
 -- do not expose it through NEXT_PUBLIC_* variables.

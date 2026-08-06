@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { ensureUserProfile } from "@/lib/user";
 
 type CharacterCard = {
   id: string;
@@ -22,6 +23,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [cards, setCards] = useState<CharacterCard[]>([]);
   const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     const init = async () => {
@@ -34,6 +36,7 @@ export default function ProfilePage() {
 
       setUid(data.user.id);
       setEmail(data.user.email || "");
+      await ensureUserProfile(data.user);
 
       // 用户资料
       const { data: profile } = await supabase
@@ -70,14 +73,16 @@ export default function ProfilePage() {
   // 保存昵称
   const saveName = async () => {
     setSaving(true);
+    setNotice("");
 
     const { data } = await supabase.auth.getUser();
 
     if (data.user) {
-      await supabase
+      const { error } = await supabase
         .from("users")
-        .update({ name })
+        .update({ name: name.trim() || data.user.email?.split("@")[0] || "未命名用户" })
         .eq("auth_id", data.user.id);
+      setNotice(error ? `保存失败：${error.message}` : "昵称已保存。");
     }
 
     setTimeout(() => {
@@ -92,6 +97,7 @@ export default function ProfilePage() {
     const file = e.target.files?.[0];
 
     if (!file) return;
+    if (file.size > 1_500_000) { setNotice("头像请小于 1.5MB。"); return; }
 
     const reader = new FileReader();
 
@@ -103,10 +109,11 @@ export default function ProfilePage() {
       const { data } = await supabase.auth.getUser();
 
       if (data.user) {
-        await supabase
+        const { error } = await supabase
           .from("users")
           .update({ avatar: base64 })
           .eq("auth_id", data.user.id);
+        setNotice(error ? `头像保存失败：${error.message}` : "头像已保存。");
       }
     };
 
@@ -224,6 +231,8 @@ export default function ProfilePage() {
                 >
                   {saving ? "保存中..." : "保存资料"}
                 </button>
+
+                {notice && <p className="text-sm text-[#c5bcff]" role="status">{notice}</p>}
 
               </div>
 
