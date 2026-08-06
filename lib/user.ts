@@ -9,8 +9,6 @@ export async function ensureUserProfile(user: User) {
   if (lookupError) return { data: null, error: lookupError };
   return supabase.from("users").insert({
     auth_id: user.id,
-    uid: Math.random().toString(36).slice(2, 10),
-    email: user.email,
     name: user.email?.split("@")[0] || "未命名用户",
     avatar: null,
   }).select().single();
