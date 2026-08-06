@@ -131,7 +131,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050508] text-white overflow-hidden">
+    <div className="profile-page min-h-screen bg-[#050508] text-white overflow-hidden">
 
       {/* 背景 */}
       <div className="fixed inset-0 pointer-events-none">
