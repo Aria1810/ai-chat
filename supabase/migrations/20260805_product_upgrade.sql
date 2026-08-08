@@ -57,6 +57,15 @@ create policy "Users manage their own profile" on public.users for all to authen
 drop policy if exists "Admins review characters" on public.characters;
 create policy "Admins review characters" on public.characters for update to authenticated using (public.is_platform_admin()) with check (public.is_platform_admin());
 
+-- Favorites / likes were originally created with RLS enabled but without policies.
+-- Keep the relationship unique and accessible only to its owner.
+create unique index if not exists favorites_user_character_unique on public.favorites(user_id, character_id);
+create unique index if not exists likes_user_character_unique on public.likes(user_id, character_id);
+drop policy if exists "Users manage their own favorites" on public.favorites;
+drop policy if exists "Users manage their own likes" on public.likes;
+create policy "Users manage their own favorites" on public.favorites for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "Users manage their own likes" on public.likes for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+
 -- The chat route writes usage with SUPABASE_SERVICE_ROLE_KEY. Keep this key server-only;
 -- do not expose it through NEXT_PUBLIC_* variables.
 

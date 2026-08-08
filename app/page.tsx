@@ -85,7 +85,6 @@ console.log("USER CHECK:", data);
             { label: "CHAT // 聊天", path: "/chat" },
             { label: "CREATE // 创建", path: "/create" },
             { label: "PROFILE // 个人", path: "/profile" },
-            { label: "PERSONA // 人设", path: "/persona" },
             { label: "RECHARGE // 充值", path: "/recharge" },
           ].map((item) => (
             <button
