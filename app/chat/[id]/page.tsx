@@ -27,6 +27,13 @@ function safeTheme(style: string | null | undefined) {
   ) as React.CSSProperties;
 }
 
+function backgroundOverlay(style: React.CSSProperties) {
+  const raw = style["--chat-background-opacity" as keyof React.CSSProperties];
+  const value = typeof raw === "string" ? Number.parseFloat(raw) : 55;
+  const opacity = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 55;
+  return (1 - opacity / 200).toFixed(2);
+}
+
 export default function ChatPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -121,8 +128,12 @@ export default function ChatPage() {
 
   if (!character) return <main className="grid h-screen place-items-center bg-[#050508] text-xs tracking-[.4em] text-[#a99cff]">INITIALIZING…</main>;
 
+  const cardTheme = safeTheme(character.chat_style);
+  const cover = character.avatar?.replace(/"/g, "\\\"");
+  const overlay = backgroundOverlay(cardTheme);
+
   return (
-    <main className="chat-shell character-chat-theme" style={{ background: "#050508", ...safeTheme(character.chat_style) }}>
+    <main className="chat-shell character-chat-theme" style={{ ...cardTheme, backgroundColor: "#050508", backgroundImage: cover ? `linear-gradient(rgba(4, 6, 12, ${overlay}), rgba(4, 6, 12, ${overlay})), url("${cover}")` : undefined, backgroundPosition: "center", backgroundSize: "cover", backgroundAttachment: "fixed" }}>
       <header className="chat-header">
         <div className="chat-character">
           <img src={character.avatar || "/placeholder.png"} alt="" className="chat-character-avatar" />
