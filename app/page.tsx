@@ -86,7 +86,6 @@ console.log("USER CHECK:", data);
             { label: "CREATE // 创建", path: "/create" },
             { label: "PROFILE // 个人", path: "/profile" },
             { label: "PERSONA // 人设", path: "/persona" },
-            { label: "USAGE // 用量", path: "/usage" },
             { label: "RECHARGE // 充值", path: "/recharge" },
           ].map((item) => (
             <button

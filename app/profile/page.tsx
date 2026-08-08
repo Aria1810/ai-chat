@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ensureUserProfile } from "@/lib/user";
+import UsageSummary from "@/components/UsageSummary";
 
 type CharacterCard = {
   id: string;
@@ -253,6 +254,8 @@ export default function ProfilePage() {
 
           {/* 右侧 */}
           <div className="flex-1">
+
+            <UsageSummary />
 
             {/* 标题 */}
             <div className="flex items-end justify-between mb-10">
