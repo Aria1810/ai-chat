@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
     let historyQuery = userDatabase.from("messages").select("id, role, content").eq("user_id", userId).eq("character_id", character_id).order("created_at", { ascending: false }).limit(20);
     historyQuery = conversation_id ? historyQuery.eq("conversation_id", conversation_id) : historyQuery.is("conversation_id", null);
     const { data: history } = await historyQuery;
-    const recentHistory = (history ?? []) as (HistoryItem & { id: string })[];
+    const recentHistory = [...(history ?? [])] as (HistoryItem & { id: string })[];
+    const previousAiId = regenerate && recentHistory[0]?.role === "ai" ? recentHistory[0].id : null;
     if (regenerate && recentHistory[0]?.role === "ai") recentHistory.shift();
     if (regenerate && recentHistory[0]?.role === "user") recentHistory.shift();
     const orderedHistory = recentHistory.reverse();
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
     if (!result.reply) return NextResponse.json({ error: "模型没有返回可用回复。" }, { status: 502 });
 
     const writer = serviceDatabase ?? userDatabase;
-    if (regenerate && history?.[0]?.role === "ai") await writer.from("messages").delete().eq("id", history[0].id);
+    if (previousAiId) await writer.from("messages").delete().eq("id", previousAiId);
     const records = regenerate
       ? [{ user_id: userId, character_id, conversation_id: conversation_id || null, role: "ai", content: result.reply }]
       : [{ user_id: userId, character_id, conversation_id: conversation_id || null, role: "user", content: message.trim() }, { user_id: userId, character_id, conversation_id: conversation_id || null, role: "ai", content: result.reply }];

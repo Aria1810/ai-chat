@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import CharacterHtmlIntro from "@/components/CharacterHtmlIntro";
 
 type Message = { role: "user" | "ai"; text: string };
 type Character = {
@@ -12,6 +13,7 @@ type Character = {
   description?: string | null;
   avatar?: string | null;
   opening_message?: string | null;
+  author_intro_html?: string | null;
   chat_style?: string | null;
 };
 
@@ -32,6 +34,14 @@ function backgroundOverlay(style: React.CSSProperties) {
   const value = typeof raw === "string" ? Number.parseFloat(raw) : 55;
   const opacity = Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 55;
   return (1 - opacity / 200).toFixed(2);
+}
+
+function AiReply({ text }: { text: string }) {
+  const parts = text.split(/(<message>[\s\S]*?<\/message>)/gi).filter(Boolean);
+  return <div className="chat-ai-content">{parts.map((part, index) => {
+    const match = part.match(/^<message>([\s\S]*?)<\/message>$/i);
+    return match ? <div key={index} className="chat-bubble chat-dialogue">{match[1].trim()}</div> : <p key={index} className="chat-ai-prose">{part.trim()}</p>;
+  })}</div>;
 }
 
 export default function ChatPage() {
@@ -82,6 +92,7 @@ export default function ChatPage() {
 
     setLoading(true);
     setError("");
+    const previousReply = regenerate ? messages[messages.length - 1] : null;
     if (regenerate) setMessages((items) => items.slice(0, -1));
     else {
       setMessages((items) => [...items, { role: "user", text: message }]);
@@ -98,6 +109,7 @@ export default function ChatPage() {
       if (!response.ok) throw new Error(data.error || "生成失败");
       setMessages((items) => [...items, { role: "ai", text: data.reply }]);
     } catch (reason) {
+      if (previousReply?.role === "ai") setMessages((items) => [...items, previousReply]);
       setError(reason instanceof Error ? reason.message : "发送失败");
     } finally {
       setLoading(false);
@@ -109,7 +121,14 @@ export default function ChatPage() {
     if (lastUserMessage) void requestReply(lastUserMessage.text, true);
   };
 
-  const newConversation = () => {
+  const newConversation = async () => {
+    if (loading || !window.confirm("开启新对话会永久删除这个角色的全部历史消息，且无法恢复。确认继续吗？")) return;
+    const user = userRef.current;
+    if (!user) return setError("登录已失效，请重新登录。");
+    setLoading(true);
+    const { error: deleteError } = await supabase.from("messages").delete().eq("user_id", user.id).eq("character_id", id);
+    setLoading(false);
+    if (deleteError) return setError(`无法清空对话：${deleteError.message}`);
     setConversationId(crypto.randomUUID());
     setMessages([]);
     setError("");
@@ -154,17 +173,18 @@ export default function ChatPage() {
 
       <section className="chat-session-bar" aria-label="对话操作">
         <span className="chat-chip">当前模型：{model}</span>
-        <button onClick={newConversation} className="chat-session-action">＋ 开启新对话</button>
+        <button disabled={loading} onClick={() => void newConversation()} className="chat-session-action">＋ 开启新对话</button>
         <button disabled={loading || !messages.some((message) => message.role === "ai")} onClick={regenerate} className="chat-session-action">↻ 重新生成</button>
       </section>
 
       <div ref={scrollRef} className="chat-scroll">
         <div className="chat-thread">
+          <CharacterHtmlIntro content={character.author_intro_html || ""} title="角色小剧场" className="mb-6 h-[420px]" />
           {character.opening_message && <section className="chat-opening"><p>SCENE / 开场</p>{character.opening_message}</section>}
           {!messages.length && <p className="chat-empty">从这里开始你们的故事。</p>}
           {messages.map((message, index) => (
             <div key={index} className={`chat-message chat-message--${message.role}`}>
-              <div className="chat-bubble">{message.text}</div>
+              {message.role === "ai" ? <AiReply text={message.text} /> : <div className="chat-bubble">{message.text}</div>}
             </div>
           ))}
           {loading && <div className="chat-thinking"><span><i /><i /><i /></span>{character.name} 正在组织回复…</div>}
