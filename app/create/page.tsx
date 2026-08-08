@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { CHARACTER_THEME_PRESETS } from "@/lib/characterThemes";
 import { useRouter } from "next/navigation";
 
 export default function CreateCharacter() {
@@ -301,7 +302,7 @@ ${rules}
               <textarea value={outputSettings} onChange={(e) => setOutputSettings(e.target.value)} placeholder="例如：每次不超过三段，动作使用 *斜体*" className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm" />
             </div>
             <label className="flex items-center gap-3 text-sm text-white/70"><input type="checkbox" checked={isPublished} onChange={(e) => setIsPublished(e.target.checked)} />公开发布（关闭后仅自己可见）</label>
-            <div><div className="text-sm text-white/40 mb-2">聊天主题 CSS</div><textarea value={chatStyle} onChange={(e) => setChatStyle(e.target.value)} placeholder="background: radial-gradient(circle at top, #44215f, #08040c); --chat-accent: #e0aaff;" className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm" /><p className="mt-2 text-xs text-white/30">为该角色的聊天页面设定独立背景基调。</p></div>
+            <div><div className="text-sm text-white/40 mb-2">聊天主题 CSS</div><div className="mb-3 flex flex-wrap gap-2">{Object.entries(CHARACTER_THEME_PRESETS).map(([label,value])=><button type="button" key={label} onClick={()=>setChatStyle(value)} className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-white/75 hover:border-[#a99cff]">{label}</button>)}</div><textarea value={chatStyle} onChange={(e) => setChatStyle(e.target.value)} placeholder="background: radial-gradient(circle at top, #44215f, #08040c); --chat-accent: #e0aaff;" className="w-full h-24 bg-white/5 border border-white/10 rounded-2xl p-5 text-sm" /><p className="mt-2 text-xs text-white/30">选择预设或自行写入 background、--chat-accent 等样式声明，只应用到该角色的聊天页。</p></div>
             {/* 按钮 */}
             <button
               onClick={create}

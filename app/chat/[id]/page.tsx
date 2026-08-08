@@ -1,15 +1,172 @@
 'use client';
+
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+
 type Message = { role: "user" | "ai"; text: string };
-type Character = { id: string; name: string; description?: string | null; avatar?: string | null; opening_message?: string | null; chat_style?: string | null };
-function theme(style: string | null | undefined) { const value = style || ""; return /[{}<@]|url\s*\(/i.test(value) ? "" : value; }
-export default function ChatPage() { const { id } = useParams<{id:string}>(); const router = useRouter(); const scrollRef = useRef<HTMLDivElement>(null); const userRef = useRef<User | null>(null); const [character,setCharacter]=useState<Character|null>(null); const [messages,setMessages]=useState<Message[]>([]); const [conversationId,setConversationId]=useState<string|null>(null); const [input,setInput]=useState(""); const [model,setModel]=useState("gpt"); const [loading,setLoading]=useState(false); const [error,setError]=useState(""); const [liked,setLiked]=useState(false); const [favorited,setFavorited]=useState(false);
- useEffect(()=>{(async()=>{const {data:{user}}=await supabase.auth.getUser();if(!user)return router.replace("/login");userRef.current=user;const [{data:char},{data:rows},{data:like},{data:fav}]=await Promise.all([supabase.from("characters").select("*").eq("id",id).single(),supabase.from("messages").select("role,content,conversation_id,created_at").eq("user_id",user.id).eq("character_id",id).order("created_at",{ascending:false}).limit(100),supabase.from("likes").select("*").eq("user_id",user.id).eq("character_id",id).maybeSingle(),supabase.from("favorites").select("*").eq("user_id",user.id).eq("character_id",id).maybeSingle()]);setCharacter(char as Character|null);const latest=rows?.[0]?.conversation_id||null;setConversationId(latest);setMessages((rows||[]).filter(r=>(r.conversation_id||null)===latest).reverse().map(r=>({role:r.role,text:r.content})));setLiked(!!like);setFavorited(!!fav)})()},[id,router]);
- useEffect(()=>{scrollRef.current?.scrollTo({top:scrollRef.current.scrollHeight,behavior:"smooth"})},[messages,loading]);
- const request=async(message:string,regenerate=false)=>{if(loading)return;const session=(await supabase.auth.getSession()).data.session;if(!session)return setError("登录已失效，请重新登录。");setLoading(true);setError("");if(!regenerate){setMessages(p=>[...p,{role:"user",text:message}]);setInput("")}else setMessages(p=>p.slice(0,-1));try{const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({message,model,character_id:id,conversation_id:conversationId,regenerate})});const data=await response.json();if(!response.ok)throw new Error(data.error||"生成失败");setMessages(p=>[...p,{role:"ai",text:data.reply}])}catch(e){if(regenerate)setMessages(p=>[...p,{role:"ai",text:"回复生成失败，请重试。"}]);setError(e instanceof Error?e.message:"发送失败") }finally{setLoading(false)}};
- const regenerate=()=>{const lastUser=[...messages].reverse().find(m=>m.role==="user");if(lastUser)request(lastUser.text,true)}; const newConversation=()=>{setConversationId(crypto.randomUUID());setMessages([]);setError("")}; const toggle=async(table:"likes"|"favorites",active:boolean,set:(v:boolean)=>void)=>{const user=userRef.current;if(!user)return;if(active)await supabase.from(table).delete().eq("user_id",user.id).eq("character_id",id);else await supabase.from(table).insert({user_id:user.id,character_id:id});set(!active)};
- if(!character)return <main className="grid h-screen place-items-center bg-[#050508] text-xs tracking-[.4em] text-[#a99cff]">INITIALIZING…</main>;
- return <main className="character-chat-theme flex h-screen flex-col overflow-hidden text-white" style={{background:"#050508",...Object.fromEntries(theme(character.chat_style).split(";").map(x=>x.split(":" )).filter(x=>x.length===2).map(([k,v])=>[k.trim() as string,v.trim()]))} as React.CSSProperties}><header className="flex flex-wrap items-center gap-4 border-b border-white/10 bg-black/35 px-5 py-4 backdrop-blur-xl"><img src={character.avatar||"/placeholder.png"} alt="" className="h-11 w-11 rounded-full border border-white/15 object-cover"/><div className="min-w-40 flex-1"><h1 className="font-black">{character.name}</h1><p className="truncate text-xs text-white/45">{character.description}</p></div><select value={model} onChange={e=>setModel(e.target.value)} className="rounded-xl border border-white/15 bg-black/30 px-3 py-2 text-sm outline-none"><option value="gpt">GPT-4o mini</option><option value="gemini">Gemini Flash</option><option value="deepseek">DeepSeek Chat</option></select><button onClick={()=>toggle("likes",liked,setLiked)} className="rounded-xl border border-white/15 px-3 py-2">{liked?"✦ 已喜欢":"✧ 喜欢"}</button><button onClick={()=>toggle("favorites",favorited,setFavorited)} className="rounded-xl border border-white/15 px-3 py-2">{favorited?"◇ 已收藏":"◇ 收藏"}</button></header><div className="flex items-center gap-3 border-b border-white/10 bg-black/20 px-5 py-3 text-xs"><span className="rounded-full bg-white/8 px-3 py-1 text-white/55">当前模型：{model}</span><button onClick={newConversation} className="rounded-lg border border-white/12 px-3 py-1.5 hover:border-white/40">＋ 开启新对话</button><button disabled={loading||!messages.some(m=>m.role==="ai")} onClick={regenerate} className="rounded-lg border border-white/12 px-3 py-1.5 hover:border-white/40 disabled:opacity-35">↻ 重新生成</button></div><div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-7 sm:px-10"><div className="mx-auto max-w-3xl space-y-5">{character.opening_message&&<div className="rounded-2xl border border-[#a99cff]/25 bg-[#786BD4]/10 p-5 text-sm leading-7 text-[#e0dcff]"><p className="mb-2 text-xs font-bold tracking-[.25em] text-[#bfb5ff]">SCENE / 开场</p>{character.opening_message}</div>}{!messages.length&&<p className="py-10 text-center text-sm text-white/35">从这里开始你们的故事。</p>}{messages.map((m,i)=><div key={i} className={`flex ${m.role==="user"?"justify-end":"justify-start"}`}><div className={`max-w-[86%] whitespace-pre-wrap rounded-2xl px-5 py-4 text-sm leading-7 shadow-lg ${m.role==="user"?"bg-white text-black":"border border-white/10 bg-black/30 text-white/85"}`}>{m.text}</div></div>)}{loading&&<div className="flex items-center gap-3 text-sm text-white/60"><span className="flex gap-1"><i className="h-2 w-2 animate-bounce rounded-full bg-[#c5bcff]"/><i className="h-2 w-2 animate-bounce rounded-full bg-[#c5bcff] [animation-delay:150ms]"/><i className="h-2 w-2 animate-bounce rounded-full bg-[#c5bcff] [animation-delay:300ms]"/></span>{character.name} 正在组织回复…</div>}{error&&<p role="alert" className="rounded-xl border border-red-300/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}</div></div><footer className="border-t border-white/10 bg-black/25 p-4 backdrop-blur-xl sm:px-10"><div className="mx-auto flex max-w-3xl gap-3"><textarea value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(input.trim())request(input.trim())}}} placeholder="输入消息，Enter 发送 / Shift + Enter 换行" className="min-h-14 flex-1 resize-none rounded-2xl border border-white/12 bg-black/25 p-4 text-sm outline-none placeholder:text-white/25 focus:border-[#a99cff]"/><button disabled={loading||!input.trim()} onClick={()=>request(input.trim())} className="rounded-2xl bg-white px-5 font-bold text-black hover:bg-[#c5bcff] disabled:opacity-40">发送</button></div></footer></main> }
+type Character = {
+  id: string;
+  name: string;
+  description?: string | null;
+  avatar?: string | null;
+  opening_message?: string | null;
+  chat_style?: string | null;
+};
+
+function safeTheme(style: string | null | undefined) {
+  const value = style || "";
+  if (/[{}<@]|url\s*\(/i.test(value)) return {};
+  return Object.fromEntries(
+    value
+      .split(";")
+      .map((item) => item.split(":"))
+      .filter(([property, ...parts]) => property.trim() && parts.length)
+      .map(([property, ...parts]) => [property.trim(), parts.join(":").trim()]),
+  ) as React.CSSProperties;
+}
+
+export default function ChatPage() {
+  const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef<User | null>(null);
+  const [character, setCharacter] = useState<Character | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [input, setInput] = useState("");
+  const [model, setModel] = useState("gpt");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [liked, setLiked] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return router.replace("/login");
+      userRef.current = user;
+
+      const [{ data: char }, { data: rows }, { data: like }, { data: favorite }] = await Promise.all([
+        supabase.from("characters").select("*").eq("id", id).single(),
+        supabase.from("messages").select("role,content,conversation_id,created_at").eq("user_id", user.id).eq("character_id", id).order("created_at", { ascending: false }).limit(100),
+        supabase.from("likes").select("*").eq("user_id", user.id).eq("character_id", id).maybeSingle(),
+        supabase.from("favorites").select("*").eq("user_id", user.id).eq("character_id", id).maybeSingle(),
+      ]);
+
+      setCharacter(char as Character | null);
+      const latestConversation = rows?.[0]?.conversation_id || null;
+      setConversationId(latestConversation);
+      setMessages((rows || []).filter((row) => (row.conversation_id || null) === latestConversation).reverse().map((row) => ({ role: row.role as Message["role"], text: row.content })));
+      setLiked(Boolean(like));
+      setFavorited(Boolean(favorite));
+    })();
+  }, [id, router]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, loading]);
+
+  const requestReply = async (message: string, regenerate = false) => {
+    if (loading) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return setError("登录已失效，请重新登录。");
+
+    setLoading(true);
+    setError("");
+    if (regenerate) setMessages((items) => items.slice(0, -1));
+    else {
+      setMessages((items) => [...items, { role: "user", text: message }]);
+      setInput("");
+    }
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ message, model, character_id: id, conversation_id: conversationId, regenerate }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "生成失败");
+      setMessages((items) => [...items, { role: "ai", text: data.reply }]);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "发送失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const regenerate = () => {
+    const lastUserMessage = [...messages].reverse().find((message) => message.role === "user");
+    if (lastUserMessage) void requestReply(lastUserMessage.text, true);
+  };
+
+  const newConversation = () => {
+    setConversationId(crypto.randomUUID());
+    setMessages([]);
+    setError("");
+  };
+
+  const toggle = async (table: "likes" | "favorites", active: boolean, setActive: (value: boolean) => void) => {
+    const user = userRef.current;
+    if (!user) return;
+    const query = active
+      ? supabase.from(table).delete().eq("user_id", user.id).eq("character_id", id)
+      : supabase.from(table).insert({ user_id: user.id, character_id: id });
+    const { error: toggleError } = await query;
+    if (toggleError) return setError(toggleError.message);
+    setActive(!active);
+  };
+
+  if (!character) return <main className="grid h-screen place-items-center bg-[#050508] text-xs tracking-[.4em] text-[#a99cff]">INITIALIZING…</main>;
+
+  return (
+    <main className="chat-shell character-chat-theme" style={{ background: "#050508", ...safeTheme(character.chat_style) }}>
+      <header className="chat-header">
+        <div className="chat-character">
+          <img src={character.avatar || "/placeholder.png"} alt="" className="chat-character-avatar" />
+          <div className="chat-character-copy">
+            <h1>{character.name}</h1>
+            <p>{character.description}</p>
+          </div>
+        </div>
+        <div className="chat-toolbar">
+          <label className="sr-only" htmlFor="chat-model">选择模型</label>
+          <select id="chat-model" value={model} onChange={(event) => setModel(event.target.value)} className="chat-control chat-model">
+            <option value="gpt">GPT-4o mini</option><option value="gemini">Gemini Flash</option><option value="deepseek">DeepSeek Chat</option>
+          </select>
+          <button onClick={() => void toggle("likes", liked, setLiked)} className="chat-control">{liked ? "✦ 已喜欢" : "✧ 喜欢"}</button>
+          <button onClick={() => void toggle("favorites", favorited, setFavorited)} className="chat-control">{favorited ? "◇ 已收藏" : "◇ 收藏"}</button>
+        </div>
+      </header>
+
+      <section className="chat-session-bar" aria-label="对话操作">
+        <span className="chat-chip">当前模型：{model}</span>
+        <button onClick={newConversation} className="chat-session-action">＋ 开启新对话</button>
+        <button disabled={loading || !messages.some((message) => message.role === "ai")} onClick={regenerate} className="chat-session-action">↻ 重新生成</button>
+      </section>
+
+      <div ref={scrollRef} className="chat-scroll">
+        <div className="chat-thread">
+          {character.opening_message && <section className="chat-opening"><p>SCENE / 开场</p>{character.opening_message}</section>}
+          {!messages.length && <p className="chat-empty">从这里开始你们的故事。</p>}
+          {messages.map((message, index) => (
+            <div key={index} className={`chat-message chat-message--${message.role}`}>
+              <div className="chat-bubble">{message.text}</div>
+            </div>
+          ))}
+          {loading && <div className="chat-thinking"><span><i /><i /><i /></span>{character.name} 正在组织回复…</div>}
+          {error && <p role="alert" className="chat-error">{error}</p>}
+        </div>
+      </div>
+
+      <footer className="chat-composer">
+        <div className="chat-composer-inner">
+          <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); if (input.trim()) void requestReply(input.trim()); } }} placeholder="输入消息，Enter 发送 / Shift + Enter 换行" className="chat-input" />
+          <button disabled={loading || !input.trim()} onClick={() => void requestReply(input.trim())} className="chat-send">发送</button>
+        </div>
+      </footer>
+    </main>
+  );
+}
