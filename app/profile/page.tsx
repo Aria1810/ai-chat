@@ -24,6 +24,7 @@ export default function ProfilePage() {
   const [cards, setCards] = useState<CharacterCard[]>([]);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -118,6 +119,16 @@ export default function ProfilePage() {
     };
 
     reader.readAsDataURL(file);
+  };
+
+  const deleteCharacter = async (characterId: string, characterName: string) => {
+    if (!window.confirm(`确定删除「${characterName}」吗？角色、评论和关联聊天记录将无法恢复。`)) return;
+    setDeletingId(characterId);
+    const { error } = await supabase.from("characters").delete().eq("id", characterId);
+    setDeletingId(null);
+    if (error) return setNotice(`删除失败：${error.message}`);
+    setCards((current) => current.filter((card) => card.id !== characterId));
+    setNotice("角色已删除。");
   };
 
   if (loading) {
@@ -343,6 +354,14 @@ export default function ProfilePage() {
                         className="px-5 h-11 rounded-xl border border-white/10 text-sm hover:border-[#786BD4]/50 hover:text-[#786BD4] transition-all"
                       >
                         编辑
+                      </button>
+
+                      <button
+                        onClick={() => deleteCharacter(c.id, c.name)}
+                        disabled={deletingId === c.id}
+                        className="px-4 h-11 rounded-xl border border-red-300/25 text-sm text-red-200 hover:bg-red-500/10 disabled:opacity-50 transition-all"
+                      >
+                        {deletingId === c.id ? "删除中..." : "删除"}
                       </button>
 
                     </div>

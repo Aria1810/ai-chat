@@ -19,11 +19,13 @@ type MessageRow = {
   created_at: string;
   characters?: { name?: string | null; avatar?: string | null; description?: string | null } | null;
 };
+type FavoriteRow = { character_id: string; characters?: { name?: string | null; avatar?: string | null; description?: string | null } | null };
 
 export default function ChatListPage() {
   const router = useRouter();
   const [chats, setChats] = useState<ChatPreview[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState<ChatPreview[]>([]);
 
   useEffect(() => {
     const init = async () => {
@@ -36,6 +38,11 @@ export default function ChatListPage() {
         .select("character_id, content, created_at, characters(name, avatar, description)")
         .eq("user_id", user_id)
         .order("created_at", { ascending: false });
+
+      const { data: favRows } = await supabase
+        .from("favorites")
+        .select("character_id, characters(name, avatar, description)")
+        .eq("user_id", user_id);
 
       const uniqueThreads = new Map();
       (msgs as MessageRow[] | null)?.forEach((m) => {
@@ -52,6 +59,14 @@ export default function ChatListPage() {
       });
 
       setChats(Array.from(uniqueThreads.values()));
+      setFavorites(((favRows as FavoriteRow[] | null) || []).map((fav) => ({
+        id: fav.character_id,
+        name: fav.characters?.name || "ANONYMOUS_ENTITY",
+        avatar: fav.characters?.avatar,
+        desc: fav.characters?.description,
+        last: "已收藏的角色",
+        time: "FAVORITE",
+      })));
       setLoading(false);
     };
     init();
@@ -73,7 +88,13 @@ export default function ChatListPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto p-8 space-y-4">
+      <main className="max-w-4xl mx-auto p-4 sm:p-8 space-y-8">
+        {!loading && favorites.length > 0 && <section>
+          <div className="mb-3 flex items-center justify-between"><div><p className="text-[10px] tracking-[.35em] text-[#a99cff]">FAVORITES</p><h2 className="mt-1 text-xl font-black">我的收藏</h2></div><span className="text-xs text-white/35">{favorites.length}</span></div>
+          <div className="grid gap-3 sm:grid-cols-2">{favorites.map((c) => <button key={c.id} onClick={() => router.push(`/chat/${c.id}`)} className="flex items-center gap-3 rounded-2xl border border-[#786BD4]/25 bg-[#786BD4]/[.06] p-4 text-left hover:bg-[#786BD4]/[.12]"><img src={c.avatar || "/placeholder.png"} alt="" className="h-11 w-11 rounded-xl object-cover"/><span className="min-w-0"><b className="block truncate">{c.name}</b><small className="block truncate text-white/45">{c.desc || "已收藏角色"}</small></span></button>)}</div>
+        </section>}
+        <section>
+        <div className="mb-3"><p className="text-[10px] tracking-[.35em] text-[#a99cff]">RECENTLY CHATTED</p><h2 className="mt-1 text-xl font-black">最近聊过</h2></div>
         {loading ? (
           <div className="py-20 text-center animate-pulse text-[10px] tracking-[0.3em] text-white/20">ACCESSING_CHANNELS...</div>
         ) : (
@@ -109,6 +130,7 @@ export default function ChatListPage() {
           </div>
           ))
         )}
+        </section>
       </main>
 
       {/* 底部装饰层 */}
